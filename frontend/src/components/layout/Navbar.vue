@@ -6,7 +6,7 @@
       </button>
 
       <div class="navbar-centro">
-        <span class="app-titulo">Stoq</span>
+        <img src="@/assets/images/logo-stoq.png" alt="Stoq" class="logo-navbar" />
         <span class="app-subtitulo">Sistema de gestión de stock</span>
       </div>
 
@@ -89,6 +89,13 @@ const cerrarSesion = () => {
   font-weight: 700;
   color: var(--color-azul-900);
   letter-spacing: -0.5px;
+}
+
+.logo-navbar {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  margin-right: var(--espacio-8);
 }
 
 .app-subtitulo {

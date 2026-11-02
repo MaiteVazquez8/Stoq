@@ -1,7 +1,7 @@
 <template>
   <aside class="sidebar">
     <div class="sidebar-brand">
-      <span class="brand-nombre">stoq.</span>
+      <img src="@/assets/images/logo-stoq.png" alt="Stoq" class="logo-imagen" />
     </div>
 
     <nav class="sidebar-nav">
@@ -88,18 +88,16 @@ const cerrarMenuMobile = () => {
 
 .sidebar-brand {
   padding: var(--espacio-24);
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--color-azul-900);
   border-bottom: var(--borde-base);
   display: flex;
   align-items: center;
-  gap: var(--espacio-8);
+  justify-content: center;
 }
 
-.brand-nombre {
-  font-weight: 700;
-  letter-spacing: -0.5px;
+.logo-imagen {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
 }
 
 .sidebar-nav {

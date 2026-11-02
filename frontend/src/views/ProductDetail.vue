@@ -1,96 +1,95 @@
 <template>
-  <AppLayout>
-    <template #default>
-      <div class="producto-detalle-vista">
-        <div class="vista-header">
-          <div class="acciones-volver">
-            <button class="btn btn-secundario btn-pequeno" @click="volver">
-              ← Volver a productos
-            </button>
+  <div class="detalle-page">
+    <div class="page-header">
+      <button class="btn-volver" @click="volver">
+        ← Volver a productos
+      </button>
+      <div class="info-producto">
+        <h1>{{ producto?.nombre }}</h1>
+        <span class="sku-producto">SKU: {{ producto?.codigo }}</span>
+      </div>
+    </div>
+
+    <div class="stock-principal">
+      <span class="numero-stock">{{ producto?.stock_actual }}</span>
+      <span class="label-stock">unidades</span>
+    </div>
+
+    <Alert v-if="alertaStockBajo" tipo="advertencia" :mensaje="alertaStockBajo" />
+
+    <div class="detalle-contenido">
+      <div class="columna-principal">
+        <div class="info-basica">
+          <div class="fila-info">
+            <span class="label-info">Categoría:</span>
+            <span class="valor-info">{{ categoriaNombre }}</span>
           </div>
-          <h1 class="titulo-pagina">{{ producto?.nombre }}</h1>
-          <span class="codigo-producto">{{ producto?.codigo }}</span>
+          <div class="fila-info">
+            <span class="label-info">Precio:</span>
+            <span class="valor-info precio">{{ formatCurrency(producto?.precio) }}</span>
+          </div>
+          <div class="fila-info">
+            <span class="label-info">Stock mínimo:</span>
+            <span class="valor-info">{{ producto?.stock_minimo || 'No definido' }}</span>
+          </div>
+          <div class="fila-info">
+            <span class="label-info">Fecha de creación:</span>
+            <span class="valor-info">{{ formatearFecha(producto?.fecha_creacion) }}</span>
+          </div>
         </div>
 
-        <Alert v-if="alertaStockBajo" tipo="advertencia" :mensaje="alertaStockBajo" />
+        <div v-if="producto?.descripcion" class="descripcion-panel">
+          <h3 class="titulo-descripcion">Descripción</h3>
+          <p class="texto-descripcion">{{ producto.descripcion }}</p>
+        </div>
 
-        <div class="detalle-grid">
-          <div class="detalle-principal">
-            <div class="stock-principal">
-              <span class="stock-numero">{{ producto?.stock_actual }}</span>
-              <span class="stock-label">unidades</span>
-            </div>
-
-            <div class="detalle-info">
-              <div class="info-fila">
-                <span class="info-fecha">SKU:</span>
-                <span class="info-valor">{{ producto?.codigo }}</span>
-              </div>
-              <div class="info-fila">
-                <span class="info-fecha">Categoría:</span>
-                <span class="info-valor">{{ categoriaNombre }}</span>
-              </div>
-              <div class="info-fila">
-                <span class="info-fecha">Precio:</span>
-                <span class="info-valor precio">{{ formatCurrency(producto?.precio) }}</span>
-              </div>
-              <div class="info-fila">
-                <span class="info-fecha">Stock mínimo:</span>
-                <span class="info-valor">{{ producto?.stock_minimo || 'No definido' }}</span>
-              </div>
-              <div class="info-fila">
-                <span class="info-fecha">Fecha de creación:</span>
-                <span class="info-valor">{{ formatearFecha(producto?.fecha_creacion) }}</span>
-              </div>
-            </div>
-
-            <div v-if="producto?.descripcion" class="detalle-descripcion">
-              <h3 class="detalle-subtitulo">Descripción</h3>
-              <p>{{ producto.descripcion }}</p>
-            </div>
-
-            <div class="detalle-acciones">
-              <button
-                v-if="esAdminComputed"
-                class="btn btn-principal"
-                @click="irEditar"
-              >
-                ✏️ Editar producto
-              </button>
-              <button
-                class="btn btn-principal"
-                @click="irRegistrarMovimiento"
-              >
-                🔄 Registrar movimiento
-              </button>
-            </div>
-          </div>
-
-          <div class="detalle-secundario">
-            <div class="panel-movimientos">
-              <h3 class="panel-titulo">Movimientos de {{ producto?.codigo }}</h3>
-              <MovementTable :producto-id="productoId" />
-            </div>
-          </div>
+        <div class="acciones-detalle">
+          <button
+            v-if="esAdmin"
+            class="btn-editar"
+            @click="irEditar"
+          >
+            ✏️ Editar producto
+          </button>
+          <button
+            class="btn-movimiento"
+            @click="irMovimiento"
+          >
+            🔄 Registrar movimiento
+          </button>
         </div>
       </div>
-    </template>
-  </AppLayout>
+
+      <div class="columna-secundaria">
+        <div class="panel-movimientos">
+          <h3 class="titulo-panel">Movimientos de {{ producto?.codigo }}</h3>
+          <MovementTable :producto-id="productoId" />
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getProduct, getCategoryName, formatCurrency, isStockLow, isAdmin } from '@/services/store'
-import AppLayout from '@/components/layout/AppLayout.vue'
+import {
+  getProduct,
+  getCategoryName,
+  formatCurrency,
+  isStockLow,
+  isAdmin
+} from '@/services/store'
 import MovementTable from '@/components/inventory/MovementTable.vue'
+import Alert from '@/components/common/Alert.vue'
 
 const route = useRoute()
 const router = useRouter()
 const productoId = Number(route.params.id)
 
+const esAdmin = isAdmin()
+
 const producto = computed(() => getProduct(productoId))
-const esAdminComputed = computed(() => isAdmin())
 
 const categoriaNombre = computed(() => {
   if (!producto.value) return '-'
@@ -107,7 +106,7 @@ const alertaStockBajo = computed(() => {
 
 const volver = () => router.push({ name: 'productos' })
 const irEditar = () => router.push({ name: 'producto-editar', params: { id: productoId } })
-const irRegistrarMovimiento = () => {
+const irMovimiento = () => {
   router.push({ name: 'registrar-movimiento', query: { producto: productoId } })
 }
 
@@ -118,51 +117,52 @@ const formatearFecha = (fecha) => {
 </script>
 
 <style scoped>
-.producto-detalle-vista {
-  max-width: 1200px;
+.detalle-page {
+  max-width: 1280px;
   margin: 0 auto;
+  padding: var(--espacio-24);
+  background-color: var(--color-gris-fondo);
+  min-height: 100vh;
 }
 
-.vista-header {
+.page-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   margin-bottom: var(--espacio-24);
   flex-wrap: wrap;
   gap: var(--espacio-16);
 }
 
-.acciones-volver {
-  margin-bottom: var(--espacio-16);
+.btn-volver {
+  padding: var(--espacio-10) var(--espacio-16);
+  font-family: var(--fuente-principal);
+  font-size: 14px;
+  color: var(--color-azul-500);
+  background: none;
+  border: 1px solid var(--color-azul-500);
+  border-radius: var(--radio-borde);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-6);
 }
 
-.titulo-pagina {
+.btn-volver:hover {
+  background-color: var(--color-azul-50);
+}
+
+.info-producto h1 {
   font-size: 28px;
   font-weight: 700;
-  color: var(--color-azul-900);
-  margin: 0;
+  color: var(--color-negro);
+  margin: 0 0 var(--espacio-4) 0;
 }
 
-.codigo-producto {
+.sku-producto {
   font-size: 14px;
   color: var(--color-gris-oscuro);
   font-family: 'Roboto', monospace;
-  background-color: var(--color-gris-fondo);
-  padding: var(--espacio-6) var(--espacio-12);
-  border-radius: var(--radio-borde);
-  border: 1px solid var(--color-gris-borde);
-}
-
-.detalle-grid {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: var(--espacio-24);
-}
-
-.detalle-principal {
-  display: flex;
-  flex-direction: column;
-  gap: var(--espacio-20);
 }
 
 .stock-principal {
@@ -171,20 +171,33 @@ const formatearFecha = (fecha) => {
   border-radius: var(--radio-borde);
   padding: var(--espacio-24);
   text-align: center;
+  margin-bottom: var(--espacio-24);
 }
 
-.stock-numero {
+.numero-stock {
   font-size: 48px;
   font-weight: 700;
   color: var(--color-negro);
 }
 
-.stock-label {
+.label-stock {
   font-size: 14px;
   color: var(--color-gris-oscuro);
 }
 
-.detalle-info {
+.detalle-contenido {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--espacio-24);
+}
+
+.columna-principal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-20);
+}
+
+.info-basica {
   background-color: var(--color-blanco);
   border: var(--borde-base);
   border-radius: var(--radio-borde);
@@ -194,48 +207,91 @@ const formatearFecha = (fecha) => {
   gap: var(--espacio-12);
 }
 
-.info-fila {
+.fila-info {
   display: flex;
   justify-content: space-between;
   font-size: 14px;
 }
 
-.info-fecha {
+.label-info {
   color: var(--color-gris-oscuro);
 }
 
-.info-valor {
+.valor-info {
   font-weight: 500;
   color: var(--color-negro);
 }
 
-.info-valor.precio {
+.valor-info.precio {
   color: var(--color-azul-900);
   font-weight: 700;
 }
 
-.detalle-descripcion {
+.descripcion-panel {
   background-color: var(--color-blanco);
   border: var(--borde-base);
   border-radius: var(--radio-borde);
   padding: var(--espacio-24);
 }
 
-.detalle-subtitulo {
+.titulo-descripcion {
   font-size: 16px;
   font-weight: 500;
   color: var(--color-negro);
-  margin-bottom: var(--espacio-8);
+  margin: 0 0 var(--espacio-12) 0;
 }
 
-.detalle-acciones {
+.texto-descripcion {
+  font-size: 14px;
+  color: var(--color-negro);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.acciones-detalle {
   display: flex;
   gap: var(--espacio-12);
 }
 
-.detalle-acciones .btn {
+.acciones-detalle .btn-editar,
+.acciones-detalle .btn-movimiento {
   flex: 1;
+  padding: var(--espacio-14);
+  font-family: var(--fuente-principal);
+  font-size: 14px;
+  font-weight: 500;
+  border: none;
+  border-radius: var(--radio-borde);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
   justify-content: center;
+  gap: var(--espacio-8);
+}
+
+.btn-editar {
+  background-color: var(--color-azul-500);
+  color: var(--color-blanco);
+}
+
+.btn-editar:hover {
+  background-color: #1976D2;
+}
+
+.btn-movimiento {
+  background-color: var(--color-blanco);
+  color: var(--color-azul-900);
+  border: var(--borde-base);
+}
+
+.btn-movimiento:hover {
+  background-color: var(--color-gris-fondo);
+}
+
+.columna-secundaria {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-16);
 }
 
 .panel-movimientos {
@@ -243,21 +299,31 @@ const formatearFecha = (fecha) => {
   border: var(--borde-base);
   border-radius: var(--radio-borde);
   padding: var(--espacio-24);
-  height: fit-content;
+}
+
+.titulo-panel {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--color-negro);
+  margin: 0 0 var(--espacio-16) 0;
 }
 
 @media (max-width: 768px) {
-  .detalle-grid {
+  .detalle-page {
+    padding: var(--espacio-16);
+  }
+
+  .detalle-contenido {
     grid-template-columns: 1fr;
   }
 
-  .vista-header {
+  .acciones-detalle {
     flex-direction: column;
-    align-items: flex-start;
   }
 
-  .detalle-acciones {
+  .page-header {
     flex-direction: column;
+    align-items: flex-start;
   }
 }
 </style>

@@ -1,93 +1,62 @@
 <template>
-  <div class="dashboard">
+  <div class="dashboard-page">
     <div class="dashboard-header">
-      <h1 class="titulo-pagina">Panel principal</h1>
-      <p class="subtitulo-pagina">Todo tu stock, en claro.</p>
+      <div class="dashboard-title">
+        <h1>Todo tu stock, en claro</h1>
+        <p>Resumen del inventario de Casa Nube - Demo · Última actualización: 27 oct 2026</p>
+      </div>
+      <button class="btn-reg-mov" @click="irRegistrarMovimiento">Registrar movimiento</button>
     </div>
-
-    <Alert v-if="alertaStockBajo && alertaStockBajo.length > 0" tipo="advertencia">
-      Hay {{ alertaStockBajo.length }} producto(s) con stock bajo. Revise el inventario.
-    </Alert>
 
     <div class="stats-grid">
       <div class="stat-card">
-        <span class="stat-etiqueta">Productos</span>
-        <span class="stat-valor">{{ totalProductos }}</span>
-        <span class="stat-cambio">en el catálogo</span>
+        <span class="stat-label">Productos</span>
+        <span class="stat-value">{{ totalProductos }}</span>
+        <span class="stat-desc">en el catálogo</span>
       </div>
       <div class="stat-card">
-        <span class="stat-etiqueta">Unidades en stock</span>
-        <span class="stat-valor">{{ totalUnidades }}</span>
-        <span class="stat-cambio">disponibles</span>
+        <span class="stat-label">Unidades en stock</span>
+        <span class="stat-value">{{ totalUnidades }}</span>
+        <span class="stat-desc">disponibles</span>
       </div>
       <div class="stat-card">
-        <span class="stat-etiqueta">Stock bajo</span>
-        <span class="stat-valor">{{ productosStockBajo.length }}</span>
-        <span class="stat-cambio negativo">requieren atención</span>
+        <span class="stat-label">Con stock bajo</span>
+        <span class="stat-value">{{ productosStockBajo.length }}</span>
+        <span class="stat-desc">requieren atención</span>
       </div>
       <div class="stat-card">
-        <span class="stat-etiqueta">Movimientos hoy</span>
-        <span class="stat-valor">{{ movimientosHoy }}</span>
-        <span class="stat-cambio positivo">registrados</span>
+        <span class="stat-label">Agotado</span>
+        <span class="stat-value">{{ productosAgotados.length }}</span>
+        <span class="stat-desc">sin unidades disponibles</span>
       </div>
     </div>
 
-    <div class="dashboard-contenido">
-      <div class="panel-grafico">
-        <div class="panel-titulo">Evolución del stock</div>
-        <div class="grafico-placeholder">
-          <div class="grafico-linea">
-            <div class="linea-tendencia"></div>
-          </div>
-          <p class="grafico-nota">Registre entradas y salidas para ver la evolución de existencias.</p>
+    <div class="dashboard-content">
+      <div class="chart-panel">
+        <div class="chart-title">Evolución del stock</div>
+        <div class="chart-placeholder">
+          <svg class="chart-line" viewBox="0 0 400 200">
+            <polyline points="20,140 80,120 140,160 200,100 260,140 320,90 380,130" fill="none" stroke="#2196F3" stroke-width="2" />
+          </svg>
+          <p class="chart-note">Registre entradas y salidas para ver la evolución de existencias.</p>
         </div>
       </div>
 
-      <div class="panel-movimientos-recientes">
+      <div class="movements-panel">
         <div class="panel-header">
-          <span class="panel-titulo">Últimos movimientos</span>
+          <span class="panel-title">Últimos movimientos</span>
           <a href="#" class="ver-todo" @click.prevent="irHistorial">Ver todo el historial →</a>
         </div>
-        <div class="movimientos-lista">
-          <div v-if="movimientosRecientes.length === 0" class="estado-vacio">
-            <div class="icono-vacio">📭</div>
-            <p>No hay movimientos registrados.</p>
-          </div>
-          <div v-else class="movimiento-item" v-for="m in movimientosRecientes" :key="m.id_movimiento">
-            <div class="movimiento-info">
-              <span class="movimiento-producto">{{ getProductName(m.id_producto) }}</span>
-              <span class="movimiento-tipo">{{ m.tipo_movimiento }}</span>
+        <div class="movements-list">
+          <div v-for="m in movimientosRecientes" :key="m.id_movimiento" class="movement-row">
+            <div class="movement-info">
+              <span class="movement-product">{{ getProductName(m.id_producto) }}</span>
+              <span class="movement-type">{{ m.tipo_movimiento }}</span>
             </div>
-            <span class="movimiento-cantidad" :class="m.tipo_movimiento === 'Salida' ? 'negativo' : 'positivo'">
-              {{ m.tipo_movimiento === 'Entrada' ? '+' : '-' }}{{ m.cantidad }}
-            </span>
-            <span class="movimiento-fecha">{{ formatearFecha(m.fecha_hora) }}</span>
+            <span class="movement-qty">{{ m.cantidad }}</span>
+            <span class="movement-date">{{ formatearFecha(m.fecha_hora) }}</span>
           </div>
         </div>
-      </div>
-    </div>
-
-    <div class="acciones-rapidas">
-      <h3 class="seccion-titulo">Acciones rápidas</h3>
-      <div class="acciones-grid">
-        <button
-          class="btn btn-principal accion-tarjeta"
-          @click="irProductos"
-        >
-          📦 Gestionar productos
-        </button>
-        <button
-          class="btn btn-principal accion-tarjeta"
-          @click="irRegistrarMovimiento"
-        >
-          🔄 Registrar movimiento
-        </button>
-        <button
-          class="btn btn-secundario accion-tarjeta"
-          @click="irInventario"
-        >
-          📈 Seguimiento de inventario
-        </button>
       </div>
     </div>
   </div>
@@ -100,15 +69,10 @@ import {
   getProducts,
   getMovements,
   getLowStockProducts,
-  getCurrentUser,
-  isAdmin,
-  isOperador
+  getCurrentUser
 } from '@/services/store'
-import Alert from '@/components/common/Alert.vue'
 
 const router = useRouter()
-const usuario = getCurrentUser()
-
 const productos = ref(getProducts())
 const movimientos = ref(getMovements())
 const stockBajo = ref(getLowStockProducts())
@@ -118,16 +82,8 @@ const totalUnidades = computed(() =>
   productos.value.reduce((sum, p) => sum + p.stock_actual, 0)
 )
 const productosStockBajo = computed(() => stockBajo.value)
-
-const hoy = new Date()
-hoy.setHours(0, 0, 0, 0)
-
-const movimientosHoy = computed(() =>
-  movimientos.value.filter(m => {
-    const fecha = new Date(m.fecha_hora)
-    fecha.setHours(0, 0, 0, 0)
-    return fecha.getTime() === hoy.getTime()
-  }).length
+const productosAgotados = computed(() =>
+  productos.value.filter(p => p.stock_actual === 0)
 )
 
 const movimientosRecientes = computed(() =>
@@ -135,8 +91,6 @@ const movimientosRecientes = computed(() =>
     .sort((a, b) => new Date(b.fecha_hora) - new Date(a.fecha_hora))
     .slice(0, 5)
 )
-
-const alertaStockBajo = computed(() => productosStockBajo.value)
 
 const getProductName = (idProducto) => {
   const p = productos.value.find(prod => prod.id_producto === idProducto)
@@ -153,81 +107,100 @@ const formatearFecha = (fechaHora) => {
   })
 }
 
-const irProductos = () => router.push({ name: 'productos' })
 const irRegistrarMovimiento = () => router.push({ name: 'registrar-movimiento' })
 const irHistorial = () => router.push({ name: 'historial-movimientos' })
-const irInventario = () => router.push({ name: 'inventario' })
 </script>
 
 <style scoped>
-.dashboard {
-  max-width: 1200px;
+.dashboard-page {
+  max-width: 1280px;
   margin: 0 auto;
+  padding: var(--espacio-24);
+  background-color: var(--color-gris-fondo);
+  min-height: 100vh;
 }
 
 .dashboard-header {
-  margin-bottom: var(--espacio-24);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--espacio-32);
 }
 
-.titulo-pagina {
-  font-size: 28px;
+.dashboard-title h1 {
+  font-size: 32px;
   font-weight: 700;
-  color: var(--color-azul-900);
-  margin-bottom: var(--espacio-8);
+  color: var(--color-negro);
+  margin: 0 0 var(--espacio-8) 0;
+  letter-spacing: -0.5px;
 }
 
-.subtitulo-pagina {
+.dashboard-title p {
   font-size: 14px;
   color: var(--color-gris-oscuro);
+  margin: 0;
+}
+
+.btn-reg-mov {
+  padding: var(--espacio-12) var(--espacio-24);
+  font-family: var(--fuente-principal);
+  font-size: 14px;
+  font-weight: 500;
+  background-color: var(--color-azul-500);
+  color: var(--color-blanco);
+  border: none;
+  border-radius: var(--radio-borde);
+  cursor: pointer;
+}
+
+.btn-reg-mov:hover {
+  background-color: #1976D2;
 }
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: var(--espacio-16);
-  margin-bottom: var(--espacio-24);
+  margin-bottom: var(--espacio-32);
 }
 
 .stat-card {
   background-color: var(--color-blanco);
   border: var(--borde-base);
   border-radius: var(--radio-borde);
-  padding: var(--espacio-20);
+  padding: var(--espacio-24);
   display: flex;
   flex-direction: column;
   gap: var(--espacio-8);
 }
 
-.stat-valor {
-  font-size: 32px;
-  font-weight: 700;
-  color: var(--color-negro);
-}
-
-.stat-etiqueta {
+.stat-label {
   font-size: 13px;
+  font-weight: 500;
   color: var(--color-gris-oscuro);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
-.stat-cambio {
-  font-size: 13px;
-  font-weight: 500;
+.stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--color-negro);
 }
 
-.stat-cambio.positivo { color: var(--color-azul-500); }
-.stat-cambio.negativo { color: #D32F2F; }
+.stat-desc {
+  font-size: 13px;
+  color: var(--color-gris-texto);
+}
 
-.dashboard-contenido {
+.dashboard-content {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: var(--espacio-24);
-  margin-bottom: var(--espacio-24);
 }
 
-.panel-grafico,
-.panel-movimientos-recientes {
+.chart-panel,
+.movements-panel {
   background-color: var(--color-blanco);
   border: var(--borde-base);
   border-radius: var(--radio-borde);
@@ -237,13 +210,14 @@ const irInventario = () => router.push({ name: 'inventario' })
   gap: var(--espacio-16);
 }
 
-.panel-titulo {
+.chart-title,
+.panel-title {
   font-size: 16px;
   font-weight: 500;
   color: var(--color-negro);
 }
 
-.grafico-placeholder {
+.chart-placeholder {
   height: 200px;
   display: flex;
   flex-direction: column;
@@ -252,32 +226,14 @@ const irInventario = () => router.push({ name: 'inventario' })
   color: var(--color-gris-oscuro);
 }
 
-.grafico-linea {
+.chart-line {
   width: 100%;
-  height: 120px;
-  border: 1px dashed var(--color-gris-borde);
-  border-radius: var(--radio-borde);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: var(--espacio-12);
-  position: relative;
-  overflow: hidden;
+  max-width: 360px;
 }
 
-.linea-tendencia {
-  position: absolute;
-  bottom: 20%;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, transparent, var(--color-azul-500), transparent);
-  opacity: 0.6;
-}
-
-.grafico-nota {
+.chart-note {
   font-size: 13px;
-  color: var(--color-gris-texto);
+  margin-top: var(--espacio-12);
   text-align: center;
 }
 
@@ -292,15 +248,16 @@ const irInventario = () => router.push({ name: 'inventario' })
   font-size: 13px;
   color: var(--color-azul-500);
   font-weight: 500;
+  text-decoration: none;
 }
 
-.movimientos-lista {
+.movements-list {
   display: flex;
   flex-direction: column;
   gap: var(--espacio-12);
 }
 
-.movimiento-item {
+.movement-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -310,66 +267,46 @@ const irInventario = () => router.push({ name: 'inventario' })
   border: 1px solid var(--color-gris-borde);
 }
 
-.movimiento-info {
+.movement-info {
   display: flex;
   flex-direction: column;
   gap: var(--espacio-4);
 }
 
-.movimiento-producto {
+.movement-product {
   font-size: 14px;
   font-weight: 500;
   color: var(--color-negro);
 }
 
-.movimiento-tipo {
+.movement-type {
   font-size: 12px;
   color: var(--color-gris-oscuro);
   text-transform: uppercase;
 }
 
-.movimiento-cantidad {
+.movement-qty {
   font-size: 14px;
   font-weight: 500;
 }
 
-.movimiento-cantidad.positivo { color: var(--color-azul-500); }
-.movimiento-cantidad.negativo { color: #D32F2F; }
-
-.movimiento-fecha {
+.movement-date {
   font-size: 12px;
   color: var(--color-gris-texto);
 }
 
-.acciones-rapidas {
-  background-color: var(--color-blanco);
-  border: var(--borde-base);
-  border-radius: var(--radio-borde);
-  padding: var(--espacio-24);
-}
-
-.seccion-titulo {
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--color-negro);
-  margin-bottom: var(--espacio-16);
-}
-
-.acciones-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: var(--espacio-12);
-}
-
-.accion-tarjeta {
-  padding: var(--espacio-16) var(--espacio-20);
-  text-align: left;
-  font-size: 14px;
-  font-weight: 500;
-}
-
 @media (max-width: 768px) {
-  .dashboard-contenido {
+  .dashboard-page {
+    padding: var(--espacio-16);
+  }
+
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--espacio-16);
+  }
+
+  .dashboard-content {
     grid-template-columns: 1fr;
   }
 

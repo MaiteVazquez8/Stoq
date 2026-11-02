@@ -1,67 +1,53 @@
 <template>
-  <div class="login-contenedor">
+  <div class="login-page">
+    <div class="login-brand">
+      <img src="@/assets/images/logo-stoq.png" alt="Stoq" class="login-logo" />
+    </div>
+
     <div class="login-panel">
-      <div class="login-marca">
-        <span class="marca-nombre">stoq.</span>
-        <p class="marca-eslogan">Tu stock, en orden.</p>
-      </div>
-
-      <div class="login-formulario">
-        <h1 class="login-titulo">Iniciar sesión</h1>
-        <p class="login-subtitulo">Ingresa a tu espacio</p>
-
-        <Alert v-if="errorLogin" tipo="error" :mensaje="errorLogin" />
-
-        <form @submit.prevent="manejarLogin" class="formulario-login">
-          <CampoFormulario
-            etiqueta="Correo electrónico *"
-            id="email"
-            tipo="input"
-            v-model:valor="credenciales.email"
-            placeholder="usuario@empresa.com"
-            requerido
-            :error="errores.email"
-          />
-          <CampoFormulario
-            etiqueta="Contraseña *"
-            id="password"
-            tipo="input"
-            v-model:valor="credenciales.password"
-            type="password"
-            placeholder="••••••••"
-            requerido
-            :error="errores.password"
-          />
-          <div class="olvido-contrasena">
-            <a href="#" @click.prevent="olvidoContrasena">¿Olvidaste tu contraseña?</a>
-          </div>
-          <button
-            class="btn btn-principal btn-login"
-            type="submit"
-            :disabled="cargando"
-          >
-            {{ cargando ? 'Ingresando...' : 'Ingresar' }}
-          </button>
-        </form>
-        <p class="login-pie">
-          ¿No tienes una cuenta?
-          <a href="#" @-click.prevent="irRegistro">Regístrate</a>
+      <div class="login-text">
+        <h1 class="login-title">Tu stock merece un lugar más simple.</h1>
+        <p class="login-subtitle">
+          Volvé a tu espacio y seguí con lo que importa:
+          Gestioná tus productos y partidas pendientes desde un solo lugar,
+          sin complicaciones.
         </p>
       </div>
 
-      <div class="login-datos-demo" v-if="mostrarDemo">
-        <div class="demo-card">
-          <p class="demo-titulo">Usuario de demostración</p>
-          <p class="demo-datos">
-            <strong>Administrador:</strong> admin@stoq.com<br />
-            <strong>Operador:</strong> operadora@stoq.com
-          </p>
-          <p class="demo-nota">
-            * Contraseña: cualquiera (simulado)
-          </p>
-        </div>
+      <div class="login-demo">
+        <span class="demo-label">Casa Nube - Demo</span>
+        <span class="demo-number">262</span>
       </div>
+
+      <form @submit.prevent="manejarLogin" class="login-form">
+        <div class="field">
+          <label class="field-label">Correo electrónico</label>
+          <input
+            type="email"
+            v-model="credenciales.email"
+            placeholder="usuario@empresa.com"
+            class="field-input"
+          />
+        </div>
+        <div class="field">
+          <label class="field-label">Contraseña</label>
+          <input
+            type="password"
+            v-model="credenciales.password"
+            placeholder="••••••••"
+            class="field-input"
+          />
+        </div>
+        <div class="forgot">
+          <a href="#" @click.prevent="olvidoContrasena">¿Te perdiste la contraseña?</a>
+        </div>
+        <button type="submit" class="btn-login" :disabled="cargando">
+          {{ cargando ? 'Ingresando...' : 'Ingresar' }}
+        </button>
+      </form>
     </div>
+
+    <Alert v-if="errorLogin" tipo="error" :mensaje="errorLogin" />
   </div>
 </template>
 
@@ -69,45 +55,18 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { login } from '@/services/store'
-import CampoFormulario from '@/components/common/Input.vue'
 import Alert from '@/components/common/Alert.vue'
 
 const router = useRouter()
 const cargando = ref(false)
 const errorLogin = ref('')
-const mostrarDemo = ref(true)
 
 const credenciales = reactive({
   email: '',
   password: ''
 })
 
-const errores = reactive({
-  email: '',
-  password: ''
-})
-
-const validarLogin = () => {
-  errores.email = ''
-  errores.password = ''
-  let valido = true
-
-  if (!credenciales.email) {
-    errores.email = 'Ingrese su correo electrónico.'
-    valido = false
-  }
-
-  if (!credenciales.password) {
-    errores.password = 'Ingrese su contraseña.'
-    valido = false
-  }
-
-  return valido
-}
-
 const manejarLogin = () => {
-  if (!validarLogin()) return
-
   cargando.value = true
   errorLogin.value = ''
 
@@ -122,135 +81,162 @@ const manejarLogin = () => {
 }
 
 const olvidoContrasena = () => {
-  alert('Función de recuperación de contraseña simulada. En producción se enviaría un enlace de restablecimiento.')
-}
-
-const irRegistro = () => {
-  alert('Pantalla de registro no incluida en los mocks de esta etapa.')
+  alert('Función de recuperación de contraseña simulada.')
 }
 </script>
 
 <style scoped>
-.login-contenedor {
+.login-page {
   min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   background-color: var(--color-blanco);
+  display: flex;
+  flex-direction: column;
+}
+
+.login-brand {
   padding: var(--espacio-24);
+  border-bottom: var(--borde-base);
+}
+
+.login-logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
 }
 
 .login-panel {
+  flex: 1;
+  padding: var(--espacio-32) var(--espacio-24);
+  max-width: 1280px;
+  margin: 0 auto;
   width: 100%;
-  max-width: 480px;
-  background-color: var(--color-blanco);
-  border: var(--borde-base);
-  border-radius: var(--radio-borde);
-  padding: var(--espacio-32);
-  box-shadow: var(--sombra-suave);
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  gap: var(--espacio-48);
+  align-items: center;
 }
 
-.login-marca {
-  text-align: center;
-  margin-bottom: var(--espacio-32);
-}
-
-.marca-nombre {
-  font-size: 32px;
-  font-weight: 700;
-  color: var(--color-azul-900);
-  letter-spacing: -1px;
-}
-
-.marca-eslogan {
-  font-size: 14px;
-  color: var(--color-gris-oscuro);
-  margin-top: var(--espacio-8);
-}
-
-.login-titulo {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--color-negro);
-  margin-bottom: var(--espacio-8);
-}
-
-.login-subtitulo {
-  font-size: 14px;
-  color: var(--color-gris-oscuro);
-  margin-bottom: var(--espacio-24);
-}
-
-.formulario-login {
+.login-text {
   display: flex;
   flex-direction: column;
   gap: var(--espacio-16);
 }
 
-.olvido-contrasena {
-  text-align: right;
-  margin-top: -var(--espacio-8);
+.login-title {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--color-negro);
+  line-height: 1.2;
+  margin: 0;
 }
 
-.olvido-contrasena a {
+.login-subtitle {
+  font-size: 14px;
+  color: var(--color-gris-oscuro);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.login-demo {
+  margin-top: var(--espacio-24);
+  text-align: right;
+}
+
+.demo-label {
+  display: block;
+  font-size: 13px;
+  color: var(--color-gris-oscuro);
+  margin-bottom: var(--espacio-4);
+}
+
+.demo-number {
+  display: block;
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--color-azul-900);
+}
+
+.login-form {
+  width: 100%;
+  max-width: 360px;
+}
+
+.field {
+  margin-bottom: var(--espacio-16);
+}
+
+.field-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-negro);
+  margin-bottom: var(--espacio-8);
+}
+
+.field-input {
+  width: 100%;
+  padding: var(--espacio-12);
+  font-family: var(--fuente-principal);
+  font-size: 14px;
+  border: var(--borde-base);
+  border-radius: var(--radio-borde);
+  background-color: var(--color-blanco);
+  color: var(--color-negro);
+  box-sizing: border-box;
+}
+
+.field-input:focus {
+  outline: none;
+  border-color: var(--color-azul-500);
+}
+
+.forgot {
+  text-align: right;
+  margin-bottom: var(--espacio-20);
+}
+
+.forgot a {
   font-size: 13px;
   color: var(--color-azul-500);
+  text-decoration: none;
 }
 
 .btn-login {
+  width: 100%;
   padding: var(--espacio-14);
+  font-family: var(--fuente-principal);
   font-size: 15px;
-  margin-top: var(--espacio-8);
-}
-
-.login-pie {
-  margin-top: var(--espacio-24);
-  font-size: 13px;
-  color: var(--color-gris-oscuro);
-  text-align: center;
-}
-
-.login-pie a {
-  color: var(--color-azul-500);
   font-weight: 500;
-}
-
-.login-datos-demo {
-  margin-top: var(--espacio-24);
-  padding-top: var(--espacio-24);
-  border-top: var(--borde-base);
-}
-
-.demo-card {
-  background-color: var(--color-azul-50);
-  border: 1px solid var(--color-azul-200);
+  background-color: var(--color-azul-500);
+  color: var(--color-blanco);
+  border: none;
   border-radius: var(--radio-borde);
-  padding: var(--espacio-16);
+  cursor: pointer;
+  margin-bottom: var(--espacio-16);
 }
 
-.demo-titulo {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-azul-900);
-  margin-bottom: var(--espacio-8);
+.btn-login:hover:not(:disabled) {
+  background-color: #1976D2;
 }
 
-.demo-datos {
-  font-size: 13px;
-  color: var(--color-negro);
-  line-height: 1.6;
-  margin-bottom: var(--espacio-8);
+.btn-login:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-.demo-nota {
-  font-size: 12px;
-  color: var(--color-gris-texto);
-  font-style: italic;
-}
-
-@media (max-width: 480px) {
+@media (max-width: 768px) {
   .login-panel {
-    padding: var(--espacio-24);
+    grid-template-columns: 1fr;
+    gap: var(--espacio-24);
+    padding: var(--espacio-24) var(--espacio-16);
+  }
+
+  .login-demo {
+    text-align: left;
+  }
+
+  .login-form {
+    max-width: 100%;
   }
 }
 </style>

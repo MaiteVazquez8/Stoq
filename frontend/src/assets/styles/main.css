@@ -7,7 +7,7 @@
   --color-azul-500: #2196F3;
   --color-azul-900: #0D47A1;
 
-  /* Neutros */
+  /* Neutros - Modo Claro */
   --color-blanco: #FFFFFF;
   --color-gris-claro: #F5F5F5;
   --color-gris-fondo: #FAFAFA;
@@ -39,6 +39,19 @@
 
   /* Tipografía */
   --fuente-principal: 'Roboto', sans-serif;
+}
+
+/* Modo Oscuro */
+.dark {
+  --color-blanco: #101010;
+  --color-gris-claro: #171717;
+  --color-gris-fondo: #0A0A0A;
+  --color-gris-borde: #333333;
+  --color-gris-texto: #A3A3A3;
+  --color-gris-oscuro: #D4D4D4;
+  --color-negro: #FAFAFA;
+  --borde-base: 1px solid var(--color-gris-borde);
+  --sombra-suave: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 * {

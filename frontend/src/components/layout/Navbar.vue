@@ -14,6 +14,9 @@
         <span class="usuario-info" v-if="usuario">
           {{ usuario.nombre }}
         </span>
+        <button class="btn btn-secundario btn-pequeno" @click="toggleTheme" title="Cambiar tema">
+          {{ darkMode() ? '☀️' : '🌙' }}
+        </button>
         <button class="btn btn-secundario btn-pequeno" @click="cerrarSesion">
           Cerrar sesión
         </button>
@@ -24,10 +27,11 @@
 
 <script setup>
 import { useRouter } from 'vue-router'
-import { getCurrentUser } from '@/services/store'
+import { getCurrentUser, toggleTheme, getTheme } from '@/services/store'
 
 const router = useRouter()
 const usuario = getCurrentUser()
+const darkMode = getTheme
 
 const toggleSidebar = () => {
   document.body.classList.toggle('sidebar-abierto')

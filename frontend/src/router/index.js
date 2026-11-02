@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { isAuthenticated } from '@/services/store'
+import { isAuthenticated, getCurrentUser } from '@/services/store'
 
 import Login from '@/views/Login.vue'
 import Dashboard from '@/views/Dashboard.vue'
@@ -80,7 +80,7 @@ const router = createRouter({
 
 // Guardia de navegación simulada
 router.beforeEach((to, from, next) => {
-  const autenticado = isAuthenticated()
+  const autenticado = isAuthenticated.value
 
   if (to.meta.requiereAutenticacion && !autenticado) {
     next({ name: 'login' })
@@ -94,7 +94,6 @@ router.beforeEach((to, from, next) => {
 
   // Verificar permisos de administrador
   if (to.meta.requiereAdmin) {
-    const { getCurrentUser } = require('@/services/store')
     const usuario = getCurrentUser()
     if (!usuario || usuario.id_rol !== 1) {
       next({ name: 'dashboard' })

@@ -1,15 +1,23 @@
 <template>
   <div id="app">
-    <router-view v-slot="{ Component }">
+    <router-view v-slot="{ Component, meta }">
       <transition name="fade" mode="out-in">
-        <component :is="Component" />
+        <component
+          :is="Component"
+          v-if="meta.publico"
+        />
+        <AppLayout v-else>
+          <template #default>
+            <component :is="Component" />
+          </template>
+        </AppLayout>
       </transition>
     </router-view>
   </div>
 </template>
 
 <script setup>
-// No imports needed at app level; routing is handled by router guards
+import AppLayout from '@/components/layout/AppLayout.vue'
 </script>
 
 <style>

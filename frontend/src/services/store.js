@@ -9,6 +9,20 @@ import { movements, addMovement, getMovementsByProduct, getMovementTypeLabel } f
 const currentUser = ref(null)
 export const isAuthenticated = ref(false)
 
+// --- Estado del tema ---
+const isDarkMode = ref(false)
+
+const toggleTheme = () => {
+  isDarkMode.value = !isDarkMode.value
+  if (isDarkMode.value) {
+    document.body.classList.add('dark')
+  } else {
+    document.body.classList.remove('dark')
+  }
+}
+
+const getTheme = () => isDarkMode.value
+
 // --- Datos reactivos ---
 const localProducts = ref([...products])
 const localMovements = ref([...movements])
@@ -149,4 +163,4 @@ export const formatCurrency = (value) => {
   }).format(value)
 }
 
-export { roles, ROLES, categories, getCategoryName, getMovementTypeLabel, isStockLow }
+export { roles, ROLES, categories, getCategoryName, getMovementTypeLabel, isStockLow, toggleTheme, getTheme }

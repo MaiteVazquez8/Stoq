@@ -1,106 +1,110 @@
 <template>
-  <div class="formulario-producto">
-    <div class="form-header">
-      <h1 class="titulo-formulario">{{ esEditar ? 'Editar producto' : 'Nuevo producto' }}</h1>
-      <p class="subtitulo-formulario">
-        {{ esEditar ? 'Modifica los datos del producto.' : 'Completa los datos para registrar un nuevo producto.' }}
-      </p>
-    </div>
-
-    <Alert v-if="alertaExito" tipo="exito" mensaje="Producto guardado correctamente." />
-    <Alert v-if="alertaError" tipo="error" :mensaje="alertaError" />
-
-    <form class="formulario" @submit.prevent="guardarProducto">
-      <div class="form-grid">
-        <CampoFormulario
-          etiqueta="Nombre del producto *"
-          id="nombre"
-          tipo="input"
-          v-model:valor="form.nombre"
-          placeholder="Ej. Mouse inalámbrico"
-          requerido
-          :error="errores.nombre"
+  <form class="formulario-producto" @submit.prevent="guardarProducto">
+    <div class="campos-formulario">
+      <div class="campo">
+        <label class="etiqueta">Nombre del producto <span class="requerido">*</span></label>
+        <input
+          type="text"
+          v-model="form.nombre"
+          placeholder="Ej. Vela de soja - Ámbar"
+          class="input-campo"
+          :class="{ error: errores.nombre }"
         />
-        <CampoFormulario
-          etiqueta="Código *"
-          id="codigo"
-          tipo="input"
-          v-model:valor="form.codigo"
+        <span v-if="errores.nombre" class="error-texto">{{ errores.nombre }}</span>
+      </div>
+
+      <div class="campo">
+        <label class="etiqueta">SKU <span class="requerido">*</span></label>
+        <input
+          type="text"
+          v-model="form.codigo"
           placeholder="Ej. VEL-001"
-          requerido
-          :error="errores.codigo"
-          textoAyuda="Código único del producto."
+          class="input-campo"
+          :class="{ error: errores.codigo }"
         />
-        <CampoFormulario
-          etiqueta="Categoría *"
-          id="categoria"
-          tipo="select"
-          v-model:valor="form.id_categoria"
-          requerido
-          :error="errores.id_categoria"
-        >
+        <span v-if="errores.codigo" class="error-texto">{{ errores.codigo }}</span>
+      </div>
+
+      <div class="campo">
+        <label class="etiqueta">Categoría <span class="requerido">*</span></label>
+        <select v-model="form.id_categoria" class="select-campo" :class="{ error: errores.id_categoria }">
+          <option value="">Seleccione una categoría...</option>
           <option v-for="cat in categorias" :key="cat.id_categoria" :value="cat.id_categoria">
             {{ cat.nombre }}
           </option>
-        </CampoFormulario>
-        <CampoFormulario
-          etiqueta="Precio *"
-          id="precio"
-          tipo="input"
-          v-model:valor="form.precio"
-          placeholder="Ej. 25000"
-          requerido
-          :error="errores.precio"
-          textoAyuda="Ingrese solo números."
+        </select>
+        <span v-if="errores.id_categoria" class="error-texto">{{ errores.id_categoria }}</span>
+      </div>
+
+      <div class="campo">
+        <label class="etiqueta">Precio <span class="requerido">*</span></label>
+        <input
+          type="text"
+          v-model="form.precio"
+          placeholder="Ej. 4500"
+          class="input-campo"
+          :class="{ error: errores.precio }"
         />
-        <CampoFormulario
-          etiqueta="Cantidad inicial *"
-          id="cantidad_inicial"
-          tipo="input"
-          v-model:valor="form.cantidad_inicial"
-          placeholder="Ej. 10"
-          requerido
-          :error="errores.cantidad_inicial"
-          textoAyuda="Stock inicial del producto."
+        <span v-if="errores.precio" class="error-texto">{{ errores.precio }}</span>
+      </div>
+
+      <div class="campo">
+        <label class="etiqueta">Cantidad inicial <span class="requerido">*</span></label>
+        <input
+          type="text"
+          v-model="form.cantidad_inicial"
+          placeholder="Ej. 84"
+          class="input-campo"
+          :class="{ error: errores.cantidad_inicial }"
         />
-        <CampoFormulario
-          etiqueta="Stock mínimo"
-          id="stock_minimo"
-          tipo="input"
-          v-model:valor="form.stock_minimo"
-          placeholder="Ej. 5"
-          textoAyuda="Nivel a partir del cual se muestra alerta de stock bajo."
-        />
-        <CampoFormulario
-          etiqueta="Descripción"
-          id="descripcion"
-          tipo="textarea"
-          v-model:valor="form.descripcion"
-          placeholder="Descripción opcional del producto"
-          textoAyuda="Campo opcional."
+        <span v-if="errores.cantidad_inicial" class="error-texto">{{ errores.cantidad_inicial }}</span>
+      </div>
+
+      <div class="campo">
+        <label class="etiqueta">Stock mínimo</label>
+        <input
+          type="text"
+          v-model="form.stock_minimo"
+          placeholder="Ej. 20"
+          class="input-campo"
         />
       </div>
 
-      <div class="form-acciones">
-        <button class="btn btn-secundario" type="button" @click="$emit('cancelar')">Cancelar</button>
-        <button
-          class="btn btn-principal"
-          type="submit"
-          :disabled="cargando"
-        >
-          {{ cargando ? 'Guardando...' : esEditar ? 'Guardar cambios' : 'Crear producto' }}
-        </button>
+      <div class="campo campo-descripcion">
+        <label class="etiqueta">Descripción</label>
+        <textarea
+          v-model="form.descripcion"
+          placeholder="Descripción opcional del producto"
+          class="textarea-campo"
+        ></textarea>
       </div>
-    </form>
-  </div>
+
+      <div class="campo campo-checkbox">
+        <label class="etiqueta-checkbox">
+          <input type="checkbox" v-model="form.alerta_stock_minimo" />
+          Espera con stock mínimo
+        </label>
+        <span class="texto-ayuda">Si se activa, se activa una alerta cuando el stock del producto baja de este valor.</span>
+      </div>
+    </div>
+
+    <div class="acciones-formulario">
+      <button type="button" class="btn-cancelar" @click="$emit('cancelar')">Cancelar</button>
+      <button
+        type="submit"
+        class="btn-guardar"
+        :disabled="cargando"
+      >
+        {{ cargando ? 'Guardando...' : esEditar ? 'Guardar cambios' : 'Crear producto' }}
+      </button>
+    </div>
+  </form>
 </template>
 
 <script setup>
-import { ref, computed, reactive, watch } from 'vue'
+import { ref, reactive, watch } from 'vue'
 import { createProduct, updateProduct, getProduct } from '@/services/store'
 import { categories } from '@/data/categories'
-import CampoFormulario from '@/components/common/Input.vue'
-import Alert from '@/components/common/Alert.vue'
 
 const props = defineProps({
   productoId: { type: [Number, String], default: null },
@@ -111,9 +115,6 @@ const emit = defineEmits(['guardar', 'cancelar'])
 
 const categorias = categories
 const cargando = ref(false)
-const alertaExito = ref(false)
-const alertaError = ref('')
-const errores = reactive({})
 
 const form = reactive({
   nombre: '',
@@ -122,7 +123,16 @@ const form = reactive({
   precio: '',
   cantidad_inicial: '',
   stock_minimo: '',
-  descripcion: ''
+  descripcion: '',
+  alerta_stock_minimo: false
+})
+
+const errores = reactive({
+  nombre: '',
+  codigo: '',
+  id_categoria: '',
+  precio: '',
+  cantidad_inicial: ''
 })
 
 // Cargar producto si es edición
@@ -136,6 +146,7 @@ if (props.esEditar && props.productoId) {
     form.cantidad_inicial = String(producto.stock_actual)
     form.stock_minimo = String(producto.stock_minimo || '')
     form.descripcion = producto.descripcion
+    form.alerta_stock_minimo = producto.stock_minimo > 0
   }
 }
 
@@ -145,7 +156,6 @@ const validarFormulario = () => {
   errores.id_categoria = ''
   errores.precio = ''
   errores.cantidad_inicial = ''
-  errores.id_categoria = ''
 
   let valido = true
 
@@ -155,7 +165,7 @@ const validarFormulario = () => {
   }
 
   if (!form.codigo || form.codigo.trim().length < 2) {
-    errores.codigo = 'Ingrese un código válido.'
+    errores.codigo = 'Ingrese un SKU válido.'
     valido = false
   }
 
@@ -188,8 +198,6 @@ const guardarProducto = async () => {
   if (!validarFormulario()) return
 
   cargando.value = true
-  alertaError.value = ''
-  alertaExito.value = false
 
   const productoData = {
     nombre: form.nombre.trim(),
@@ -210,24 +218,29 @@ const guardarProducto = async () => {
     }
 
     if (resultado.success) {
-      alertaExito.value = true
       cargando.value = false
-      setTimeout(() => {
-        emit('guardar', resultado.product)
-      }, 800)
+      emit('guardar', resultado.product)
     } else {
-      alertaError.value = resultado.error || 'Error al guardar el producto.'
+      // Mostrar error en el campo correspondiente
+      if (resultado.error.includes('código') || resultado.error.includes('SKU')) {
+        errores.codigo = resultado.error
+      } else {
+        alert(resultado.error)
+      }
       cargando.value = false
     }
   } catch (err) {
-    alertaError.value = 'Error inesperado al guardar.'
+    alert('Error inesperado al guardar.')
     cargando.value = false
   }
 }
 
 watch(() => props.esEditar, () => {
-  alertaExito.value = false
-  alertaError.value = ''
+  errores.nombre = ''
+  errores.codigo = ''
+  errores.id_categoria = ''
+  errores.precio = ''
+  errores.cantidad_inicial = ''
 })
 </script>
 
@@ -237,45 +250,164 @@ watch(() => props.esEditar, () => {
   margin: 0 auto;
 }
 
-.form-header {
-  margin-bottom: var(--espacio-24);
-}
-
-.titulo-formulario {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--color-azul-900);
-  margin-bottom: var(--espacio-8);
-}
-
-.subtitulo-formulario {
-  font-size: 14px;
-  color: var(--color-gris-oscuro);
-}
-
-.form-grid {
+.campos-formulario {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: var(--espacio-20);
   margin-bottom: var(--espacio-24);
 }
 
-.form-acciones {
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-6);
+}
+
+.campo-descripcion {
+  grid-column: 1 / -1;
+}
+
+.campo-checkbox {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--espacio-8);
+  padding: var(--espacio-12);
+  background-color: var(--color-gris-fondo);
+  border-radius: var(--radio-borde);
+  border: 1px solid var(--color-gris-borde);
+}
+
+.etiqueta {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-negro);
+  display: flex;
+  align-items: center;
+}
+
+.requerido {
+  color: var(--color-azul-500);
+  margin-left: var(--espacio-4);
+}
+
+.input-campo,
+.select-campo {
+  padding: var(--espacio-12);
+  font-family: var(--fuente-principal);
+  font-size: 14px;
+  border: var(--borde-base);
+  border-radius: var(--radio-borde);
+  background-color: var(--color-blanco);
+  color: var(--color-negro);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.input-campo:focus,
+.select-campo:focus {
+  outline: none;
+  border-color: var(--color-azul-500);
+}
+
+.input-campo.error,
+.select-campo.error {
+  border-color: var(--color-error);
+}
+
+.textarea-campo {
+  padding: var(--espacio-12);
+  font-family: var(--fuente-principal);
+  font-size: 14px;
+  border: var(--borde-base);
+  border-radius: var(--radio-borde);
+  background-color: var(--color-blanco);
+  color: var(--color-negro);
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 100px;
+  resize: vertical;
+}
+
+.textarea-campo:focus {
+  outline: none;
+  border-color: var(--color-azul-500);
+}
+
+.etiqueta-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-8);
+  font-size: 14px;
+  color: var(--color-negro);
+  cursor: pointer;
+}
+
+.texto-ayuda {
+  font-size: 12px;
+  color: var(--color-gris-texto);
+  margin-left: var(--espacio-8);
+}
+
+.error-texto {
+  font-size: 12px;
+  color: var(--color-error);
+  margin-top: var(--espacio-4);
+}
+
+.acciones-formulario {
   display: flex;
   gap: var(--espacio-12);
   justify-content: flex-end;
 }
 
+.btn-cancelar {
+  padding: var(--espacio-12) var(--espacio-24);
+  font-family: var(--fuente-principal);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-azul-900);
+  background-color: var(--color-blanco);
+  border: var(--borde-base);
+  border-radius: var(--radio-borde);
+  cursor: pointer;
+}
+
+.btn-cancelar:hover {
+  background-color: var(--color-gris-fondo);
+}
+
+.btn-guardar {
+  padding: var(--espacio-12) var(--espacio-24);
+  font-family: var(--fuente-principal);
+  font-size: 14px;
+  font-weight: 500;
+  background-color: var(--color-azul-500);
+  color: var(--color-blanco);
+  border: none;
+  border-radius: var(--radio-borde);
+  cursor: pointer;
+}
+
+.btn-guardar:hover:not(:disabled) {
+  background-color: #1976D2;
+}
+
+.btn-guardar:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 @media (max-width: 480px) {
-  .form-grid {
+  .campos-formulario {
     grid-template-columns: 1fr;
   }
 
-  .form-acciones {
+  .acciones-formulario {
     flex-direction: column;
   }
 
-  .form-acciones .btn {
+  .acciones-formulario button {
     width: 100%;
   }
 }

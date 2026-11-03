@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { isAuthenticated, getCurrentUser } from '@/services/store'
+import { isAuthenticated, isAdmin } from '@/services/store'
 
+import Home from '@/views/Home.vue'
 import Login from '@/views/Login.vue'
 import Dashboard from '@/views/Dashboard.vue'
 import ProductList from '@/views/ProductList.vue'
@@ -13,95 +14,98 @@ import InventoryTracking from '@/views/InventoryTracking.vue'
 
 const routes = [
   {
-    path: '/login',
-    name: 'login',
-    component: Login,
-    meta: { requiereAutenticacion: false, publico: true }
+    path: '/',
+    name: 'inicio',
+    component: Home,
+    meta: { publico: true, seccion: 'Inicio' }
   },
   {
-    path: '/',
-    name: 'dashboard',
+    path: '/ingresar',
+    name: 'ingresar',
+    component: Login,
+    meta: { publico: true, seccion: 'Ingreso' }
+  },
+  {
+    path: '/panel',
+    name: 'panel',
     component: Dashboard,
-    meta: { requiereAutenticacion: true }
+    meta: { seccion: 'Panel' }
   },
   {
     path: '/productos',
     name: 'productos',
     component: ProductList,
-    meta: { requiereAutenticacion: true }
+    meta: { seccion: 'Productos' }
   },
   {
     path: '/productos/nuevo',
     name: 'producto-nuevo',
     component: ProductNew,
-    meta: { requiereAutenticacion: true, requiereAdmin: true }
-  },
-  {
-    path: '/productos/:id/editar',
-    name: 'producto-editar',
-    component: ProductEdit,
-    meta: { requiereAutenticacion: true, requiereAdmin: true }
+    meta: { seccion: 'Productos', requiereAdmin: true }
   },
   {
     path: '/productos/:id',
     name: 'producto-detalle',
     component: ProductDetail,
-    meta: { requiereAutenticacion: true }
+    meta: { seccion: 'Productos' }
+  },
+  {
+    path: '/productos/:id/editar',
+    name: 'producto-editar',
+    component: ProductEdit,
+    meta: { seccion: 'Productos', requiereAdmin: true }
+  },
+  {
+    path: '/movimientos',
+    name: 'movimientos',
+    component: MovementHistory,
+    meta: { seccion: 'Movimientos' }
   },
   {
     path: '/movimientos/registrar',
-    name: 'registrar-movimiento',
+    name: 'movimiento-registrar',
     component: MovementRegister,
-    meta: { requiereAutenticacion: true }
-  },
-  {
-    path: '/movimientos/historial',
-    name: 'historial-movimientos',
-    component: MovementHistory,
-    meta: { requiereAutenticacion: true }
+    meta: { seccion: 'Movimientos' }
   },
   {
     path: '/inventario',
     name: 'inventario',
     component: InventoryTracking,
-    meta: { requiereAutenticacion: true }
+    meta: { seccion: 'Inventario' }
   },
   {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
-    redirect: { name: 'login' }
+    redirect: { name: 'inicio' }
   }
 ]
 
 const router = createRouter({
   history: createWebHistory(),
-  routes
+  routes,
+  scrollBehavior: () => ({ top: 0 })
 })
 
-// Guardia de navegación simulada
-router.beforeEach((to, from, next) => {
+// Guarda de navegación simulada (RN01). La seguridad real se implementará en el servidor.
+router.beforeEach((to) => {
   const autenticado = isAuthenticated.value
 
-  if (to.meta.requiereAutenticacion && !autenticado) {
-    next({ name: 'login' })
-    return
-  }
-
-  if (to.meta.publico && autenticado) {
-    next({ name: 'dashboard' })
-    return
-  }
-
-  // Verificar permisos de administrador
-  if (to.meta.requiereAdmin) {
-    const usuario = getCurrentUser()
-    if (!usuario || usuario.id_rol !== 1) {
-      next({ name: 'dashboard' })
-      return
+  if (to.meta.publico) {
+    if (autenticado && to.name === 'ingresar') {
+      return { name: 'panel' }
     }
+    return true
   }
 
-  next()
+  if (!autenticado) {
+    return { name: 'ingresar' }
+  }
+
+  if (to.meta.requiereAdmin && !isAdmin.value) {
+    return { name: 'panel' }
+  }
+
+  return true
 })
 
 export default router

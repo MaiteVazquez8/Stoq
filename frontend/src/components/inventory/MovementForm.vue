@@ -1,297 +1,384 @@
 <template>
-  <div class="formulario-movimiento">
-    <div class="form-header">
-      <h1 class="titulo-formulario">Registrar movimiento</h1>
-      <p class="subtitulo-formulario">
-        Registre una entrada o salida de stock para un producto.
-      </p>
-    </div>
+  <div class="pila--24">
+    <Alert
+      v-if="mensajeExito"
+      tipo="exito"
+      :titulo="mensajeExito.titulo"
+      :mensaje="mensajeExito.texto"
+    />
 
-    <Alert v-if="alertaExito" tipo="exito" :mensaje="mensajeExito" />
-    <Alert v-if="alertaError" tipo="error" :mensaje="alertaError" />
-    <Alert v-if="alertaInfo" tipo="info" :mensaje="alertaInfo" />
+    <Alert
+      v-if="mensajeError"
+      tipo="error"
+      :titulo="mensajeError.titulo"
+      :mensaje="mensajeError.texto"
+    />
 
-    <form class="formulario" @submit.prevent="registrarMovimiento">
-      <div class="form-grid">
-        <CampoFormulario
-          etiqueta="Tipo de movimiento *"
-          id="tipo_movimiento"
-          tipo="select"
-          v-model:valor="form.tipo_movimiento"
-          requerido
-          :error="errores.tipo_movimiento"
-        >
-          <option value="Entrada">Entrada</option>
-          <option value="Salida">Salida</option>
-        </CampoFormulario>
-
-        <CampoFormulario
-          etiqueta="Producto *"
-          id="id_producto"
-          tipo="select"
-          v-model:valor="form.id_producto"
-          requerido
-          :error="errores.id_producto"
-        >
-          <option value="">Seleccione un producto...</option>
-          <option
-            v-for="p in productosDisponibles"
-            :key="p.id_producto"
-            :value="p.id_producto"
+    <form class="pila--24" novalidate @submit.prevent="solicitarConfirmacion">
+      <div class="selector-tipo">
+        <div class="selector-tipo__opciones">
+          <button
+            v-for="opcion in TIPOS"
+            :key="opcion.valor"
+            type="button"
+            class="opcion-tipo"
+            :class="{ 'opcion-tipo--activa': form.tipo_movimiento === opcion.valor }"
+            :aria-pressed="form.tipo_movimiento === opcion.valor ? 'true' : 'false'"
+            @click="cambiarTipo(opcion.valor)"
           >
-            {{ p.nombre }} ({{ p.codigo }}) - Stock: {{ p.stock_actual }}
-          </option>
-        </CampoFormulario>
+            <Icon :nombre="opcion.icono" :tamano="16" />
+            {{ opcion.valor }}
+          </button>
+        </div>
+        <p class="campo-ayuda">Entrada suma. Salida descuenta.</p>
+      </div>
 
-        <CampoFormulario
-          etiqueta="Cantidad *"
-          id="cantidad"
-          tipo="input"
-          v-model:valor="form.cantidad"
-          placeholder="Ej. 10"
-          requerido
+      <div class="grilla-dos grilla-dos--amplia">
+        <Input
+          v-model="form.id_producto"
+          etiqueta="Producto"
+          nombre="movimiento-producto"
+          tipo="select"
+          placeholder="Elegí un producto"
+          :requerido="true"
+          :opciones="opcionesProductos"
+          :error="errores.id_producto"
+        />
+
+        <Input
+          v-model="form.cantidad"
+          etiqueta="Cantidad"
+          nombre="movimiento-cantidad"
+          type="text"
+          inputmode="numeric"
+          placeholder="Ej.: 6"
+          :requerido="true"
+          :ayuda="ayudaCantidad"
           :error="errores.cantidad"
-          textoAyuda="Debe ser un número entero positivo."
         />
 
-        <CampoFormulario
-          etiqueta="Observación"
-          id="observacion"
-          tipo="textarea"
-          v-model:valor="form.observacion"
-          placeholder="Observación opcional"
-          textoAyuda="Ej. Venta a cliente, reposición, etc."
+        <Input
+          :model-value="fechaHoraCampo"
+          etiqueta="Fecha y hora"
+          nombre="movimiento-fecha"
+          tipo="estatico"
+          :ayuda="ayudaResponsable"
+        />
+
+        <Input
+          v-model="form.motivo"
+          etiqueta="Motivo"
+          nombre="movimiento-motivo"
+          tipo="select"
+          placeholder="Elegí un motivo"
+          :requerido="true"
+          :opciones="motivosDisponibles"
+          :error="errores.motivo"
         />
       </div>
 
-      <div class="resumen-movimiento" v-if="productoSeleccionado">
-        <div class="resumen-item">
-          <span class="resumen-label">Producto:</span>
-          <span class="resumen-valor">{{ productoSeleccionado.nombre }}</span>
-        </div>
-        <div class="resumen-item">
-          <span class="resumen-label">Stock actual:</span>
-          <span class="resumen-valor">{{ productoSeleccionado.stock_actual }} unidad(es)</span>
-        </div>
-        <div class="resumen-item" v-if="form.tipo_movimiento === 'Salida' && productoSeleccionado">
-          <span class="resumen-label">Stock después de la salida:</span>
-          <span class="resumen-valor">
-            {{ calcularNuevoStock() }} unidad(es)
-          </span>
-        </div>
+      <Input
+        v-model="form.observacion"
+        etiqueta="Nota interna / Opcional"
+        nombre="movimiento-nota"
+        tipo="textarea"
+        :filas="2"
+        placeholder="Ej.: Retiro de pedido de la mañana."
+        :maxlength="200"
+      />
+
+      <div class="panel previsualizacion">
+        <p class="texto-etiqueta">Antes de confirmar</p>
+        <p class="previsualizacion__linea">{{ lineaPrevia }}</p>
+        <p class="texto-secundario">Vista previa. El stock todavía no se modificó.</p>
       </div>
 
-      <div class="form-acciones">
-        <button class="btn btn-secundario" type="button" @click="$emit('cancelar')">Cancelar</button>
-        <button
-          class="btn btn-principal"
-          type="submit"
-          :disabled="cargando"
-        >
-          {{ cargando ? 'Registrando...' : 'Registrar movimiento' }}
-        </button>
+      <p v-if="productoSeleccionado" class="nota-linea">
+        <Icon nombre="info" :tamano="16" class="nota-linea__icono" />
+        No se permiten salidas mayores al stock disponible. El saldo actual de
+        {{ productoSeleccionado.codigo }} es {{ formatUnidades(productoSeleccionado.stock_actual) }},
+        el mínimo es {{ formatUnidades(productoSeleccionado.stock_minimo) }}.
+      </p>
+
+      <div class="fila acciones-pila">
+        <Button tipo="submit" :deshabilitado="!puedeRegistrar">
+          Registrar {{ etiquetaTipo }}
+        </Button>
+      </div>
+
+      <div>
+        <RouterLink class="enlace-volver" :to="{ name: 'movimientos' }">
+          <Icon nombre="flecha-izquierda" :tamano="16" />
+          Cancelar y volver al historial
+        </RouterLink>
       </div>
     </form>
+
+    <ConfirmModal
+      :abierto="modalAbierto"
+      :titulo="`¿Registramos esta ${etiquetaTipo}?`"
+      :texto-confirmar="`Registrar ${etiquetaTipo}`"
+      texto-procesando="Registrando…"
+      :procesando="registrando"
+      @cancelar="modalAbierto = false"
+      @confirmar="registrar"
+    >
+      <p v-if="productoSeleccionado">Vas a {{ form.tipo_movimiento === 'Entrada' ? 'sumar' : 'descontar' }} {{ formatUnidadesLargas(form.cantidad) }} de {{ productoSeleccionado.nombre }}.</p>
+      <p><strong>Stock actual: {{ formatUnidades(stockAnterior) }} → Stock resultante: {{ formatUnidades(stockResultante) }}</strong></p>
+      <p class="texto-secundario">Motivo: {{ form.motivo || 'Sin motivo' }} · {{ fechaHoraTexto }}</p>
+    </ConfirmModal>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, reactive, watch } from 'vue'
-import { registerMovement, getProducts, getCurrentUser } from '@/services/store'
-import { getCurrentUser as getAuthUser } from '@/services/store'
-import CampoFormulario from '@/components/common/Input.vue'
+import { computed, reactive, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import Alert from '@/components/common/Alert.vue'
+import Button from '@/components/common/Button.vue'
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
+import Icon from '@/components/common/Icon.vue'
+import Input from '@/components/common/Input.vue'
+import {
+  getCurrentUser,
+  getMovementMotives,
+  getProducts,
+  isAdmin,
+  isOperador,
+  registrarMovimiento
+} from '@/services/store'
+import { validarMovimiento, hayErrores, esEnteroPositivo } from '@/utils/validation'
+import { formatFechaHoraNumerica, formatUnidades, formatUnidadesLargas } from '@/utils/format'
+import { negocio } from '@/data/business'
 
 const props = defineProps({
   productoPreseleccionado: { type: [Number, String], default: null }
 })
 
-const emit = defineEmits(['movimiento-registrado', 'cancelar'])
+const router = useRouter()
 
-const cargando = ref(false)
-const alertaExito = ref(false)
-const alertaError = ref('')
-const alertaInfo = ref(false)
-const mensajeExito = ref('')
-const errores = reactive({})
+const TIPOS = [
+  { valor: 'Entrada', icono: 'flecha-abajo' },
+  { valor: 'Salida', icono: 'flecha-arriba' }
+]
 
 const form = reactive({
-  tipo_movimiento: '',
+  tipo_movimiento: 'Entrada',
   id_producto: '',
   cantidad: '',
+  motivo: '',
   observacion: ''
 })
 
-const productos = ref(getProducts())
-const usuario = getCurrentUser()
+const errores = reactive({})
+const modalAbierto = ref(false)
+const registrando = ref(false)
+const mensajeExito = ref(null)
+const mensajeError = ref(null)
 
-const productosDisponibles = computed(() => productos.value)
+const productos = computed(() => getProducts())
 
-const productoSeleccionado = computed(() => {
-  return productos.value.find(p => p.id_producto === Number(form.id_producto))
+const opcionesProductos = computed(() =>
+  productos.value.map(producto => ({
+    valor: producto.id_producto,
+    texto: `${producto.nombre} / ${producto.codigo}`
+  }))
+)
+
+const productoSeleccionado = computed(() =>
+  productos.value.find(p => p.id_producto === Number(form.id_producto)) || null
+)
+
+const motivosDisponibles = computed(() => getMovementMotives(form.tipo_movimiento))
+
+const etiquetaTipo = computed(() => (form.tipo_movimiento === 'Entrada' ? 'entrada' : 'salida'))
+
+const fechaHoraTexto = computed(() => negocio.hoyTexto)
+const fechaHoraCampo = computed(() => formatFechaHoraNumerica(negocio.hoy))
+
+const ayudaResponsable = computed(() => {
+  const usuario = getCurrentUser()
+  return usuario ? `Se registra a nombre de ${usuario.nombre}.` : 'Se registra automáticamente.'
 })
 
-const calcularNuevoStock = computed(() => {
-  if (!productoSeleccionado.value || !form.cantidad) return 0
-  const stock = Number(productoSeleccionado.value.stock_actual)
-  const cant = Number(form.cantidad)
-  if (form.tipo_movimiento === 'Entrada') {
-    return stock + cant
-  } else {
-    return stock - cant
-  }
+const ayudaCantidad = computed(() => {
+  if (!productoSeleccionado.value) return 'En unidades enteras, mayor a 0.'
+  const cantidad = esEnteroPositivo(form.cantidad) ? formatUnidadesLargas(form.cantidad) : 'Cantidad en unidades'
+  return `${cantidad} · Disponible: ${formatUnidades(productoSeleccionado.value.stock_actual)}`
 })
 
-const validarFormulario = () => {
-  errores.tipo_movimiento = ''
-  errores.id_producto = ''
-  errores.cantidad = ''
+const stockAnterior = computed(() => productoSeleccionado.value?.stock_actual ?? 0)
 
-  let valido = true
+const stockResultante = computed(() => {
+  if (!productoSeleccionado.value) return 0
+  const cantidad = Number(form.cantidad) || 0
+  return form.tipo_movimiento === 'Entrada'
+    ? stockAnterior.value + cantidad
+    : stockAnterior.value - cantidad
+})
 
-  if (!form.tipo_movimiento) {
-    errores.tipo_movimiento = 'Seleccione el tipo de movimiento.'
-    valido = false
+const lineaPrevia = computed(() => {
+  if (!productoSeleccionado.value || !esEnteroPositivo(form.cantidad)) {
+    return `${formatUnidades(stockAnterior.value)} → 0 unidades`
   }
-
-  if (!form.id_producto) {
-    errores.id_producto = 'Seleccione un producto.'
-    valido = false
+  if (stockInsuficiente.value) {
+    return `${formatUnidades(stockAnterior.value)} · la salida supera el stock disponible`
   }
+  const signo = form.tipo_movimiento === 'Entrada' ? '+' : '–'
+  return `${formatUnidades(stockAnterior.value)} ${signo} ${formatUnidades(form.cantidad)} → ${formatUnidadesLargas(stockResultante.value)}`
+})
 
-  const cantNum = Number(form.cantidad)
-  if (!form.cantidad || !Number.isInteger(cantNum) || cantNum <= 0) {
-    errores.cantidad = 'Ingrese una cantidad válida (número entero mayor a 0).'
-    valido = false
-  }
+const stockInsuficiente = computed(
+  () =>
+    !!productoSeleccionado.value &&
+    form.tipo_movimiento === 'Salida' &&
+    esEnteroPositivo(form.cantidad) &&
+    Number(form.cantidad) > productoSeleccionado.value.stock_actual
+)
 
-  // Validar stock suficiente para salidas
-  if (form.tipo_movimiento === 'Salida' && productoSeleccionado.value) {
-    if (cantNum > productoSeleccionado.value.stock_actual) {
-      errores.cantidad = `Stock insuficiente. Disponible: ${productoSeleccionado.value.stock_actual} unidad(es).`
-      valido = false
-    }
-  }
+const puedeRegistrar = computed(() => isAdmin.value || isOperador.value)
 
-  return valido
+const limpiarMensajes = () => {
+  mensajeExito.value = null
+  mensajeError.value = null
 }
 
-const registrarMovimiento = async () => {
-  if (!validarFormulario()) return
+const cambiarTipo = (tipo) => {
+  if (form.tipo_movimiento === tipo) return
+  form.tipo_movimiento = tipo
+  form.motivo = ''
+  delete errores.motivo
+  limpiarMensajes()
+}
 
-  cargando.value = true
-  alertaError.value = ''
-  alertaExito.value = false
+watch(
+  () => props.productoPreseleccionado,
+  (productoId) => {
+    if (productoId) form.id_producto = Number(productoId)
+  },
+  { immediate: true }
+)
 
-  const movimientoData = {
-    id_producto: Number(form.id_producto),
+const solicitarConfirmacion = () => {
+  limpiarMensajes()
+
+  if (!puedeRegistrar.value) {
+    mensajeError.value = {
+      titulo: 'Operación no autorizada',
+      texto: 'Tu perfil no tiene permiso para registrar movimientos.'
+    }
+    return
+  }
+
+  const resultado = validarMovimiento(form, productoSeleccionado.value)
+  Object.keys(errores).forEach(clave => delete errores[clave])
+  Object.assign(errores, resultado)
+
+  if (hayErrores(resultado)) {
+    mensajeError.value = stockInsuficiente.value
+      ? {
+          titulo: 'La cantidad supera el stock disponible',
+          texto: `Tenés ${formatUnidadesLargas(stockAnterior.value)}. Ingresá una cantidad entre 1 y ${stockAnterior.value} para registrar la salida.`
+        }
+      : {
+          titulo: 'No pudimos registrar el movimiento',
+          texto: 'Revisá los campos marcados para continuar. No se modificó el stock.'
+        }
+    return
+  }
+
+  modalAbierto.value = true
+}
+
+const registrar = () => {
+  registrando.value = true
+
+  const respuesta = registrarMovimiento({
+    id_producto: form.id_producto,
     tipo_movimiento: form.tipo_movimiento,
-    cantidad: Number(form.cantidad),
-    observacion: form.observacion.trim()
+    cantidad: form.cantidad,
+    motivo: form.motivo,
+    observacion: form.observacion
+  })
+
+  registrando.value = false
+  modalAbierto.value = false
+
+  if (!respuesta.success) {
+    mensajeError.value = { titulo: 'No pudimos registrar el movimiento', texto: respuesta.error }
+    if (respuesta.campo) errores[respuesta.campo] = respuesta.error
+    return
   }
 
-  try {
-    const resultado = registerMovement(movimientoData, usuario)
-
-    if (resultado.success) {
-      mensajeExito.value = `Movimiento de ${form.tipo_movimiento.toLowerCase()} registrado correctamente. Nuevo stock: ${resultado.nuevoStock} unidad(es).`
-      alertaExito.value = true
-      cargando.value = false
-      setTimeout(() => {
-        emit('movimiento-registrado', resultado.movement)
-      }, 800)
-    } else {
-      alertaError.value = resultado.error || 'Error al registrar el movimiento.'
-      cargando.value = false
-    }
-  } catch (err) {
-    alertaError.value = 'Error inesperado al registrar el movimiento.'
-    cargando.value = false
+  mensajeExito.value = {
+    titulo: form.tipo_movimiento === 'Entrada' ? 'Entrada registrada' : 'Salida registrada',
+    texto: `${formatUnidadesLargas(respuesta.movement.cantidad)} de ${productoSeleccionado.value.nombre}. El stock ahora es ${formatUnidades(respuesta.stockNuevo)}`
   }
+
+  setTimeout(() => {
+    router.push({ name: 'movimientos' })
+  }, 1200)
 }
-
-// Si hay producto preseleccionado, asignarlo
-watch(() => props.productoPreseleccionado, (nuevo) => {
-  if (nuevo) {
-    form.id_producto = String(nuevo)
-  }
-})
 </script>
 
 <style scoped>
-.formulario-movimiento {
-  max-width: 700px;
-  margin: 0 auto;
+.selector-tipo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-8);
+  padding: var(--esp-16);
+  background-color: var(--superficie);
+  border: var(--borde-base);
+  border-radius: var(--radio-tarjeta);
 }
 
-.form-header {
-  margin-bottom: var(--espacio-24);
-}
-
-.titulo-formulario {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--color-azul-900);
-  margin-bottom: var(--espacio-8);
-}
-
-.subtitulo-formulario {
-  font-size: 14px;
-  color: var(--color-gris-oscuro);
-}
-
-.form-grid {
+.selector-tipo__opciones {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: var(--espacio-20);
-  margin-bottom: var(--espacio-24);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--esp-12);
 }
 
-.resumen-movimiento {
-  background-color: var(--color-azul-50);
-  border: 1px solid var(--color-azul-200);
-  border-radius: var(--radio-borde);
-  padding: var(--espacio-16);
-  margin-bottom: var(--espacio-24);
-}
-
-.resumen-item {
+.opcion-tipo {
   display: flex;
-  justify-content: space-between;
-  margin-bottom: var(--espacio-8);
-  font-size: 14px;
+  align-items: center;
+  justify-content: center;
+  gap: var(--esp-8);
+  min-height: 48px;
+  font-size: 15px;
+  color: var(--texto);
+  background-color: var(--superficie);
+  border: var(--borde-base);
+  border-radius: var(--radio-control);
+  cursor: pointer;
 }
 
-.resumen-item:last-child {
-  margin-bottom: 0;
-}
+.opcion-tipo:hover { border-color: var(--n-400); }
 
-.resumen-label {
-  color: var(--color-gris-oscuro);
-}
-
-.resumen-valor {
+.opcion-tipo--activa {
+  color: var(--n-900);
+  background-color: var(--azul-50);
+  border-color: var(--azul-500);
   font-weight: 500;
-  color: var(--color-negro);
 }
 
-.form-acciones {
+.dark .opcion-tipo--activa {
+  color: #FAFAFA;
+  background-color: rgba(144, 202, 249, 0.2);
+  border-color: var(--azul-200);
+}
+
+.previsualizacion {
   display: flex;
-  gap: var(--espacio-12);
-  justify-content: flex-end;
+  flex-direction: column;
+  gap: var(--esp-4);
 }
 
-@media (max-width: 480px) {
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
+.previsualizacion__linea {
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
 
-  .form-acciones {
-    flex-direction: column;
-  }
-
-  .form-acciones .btn {
-    width: 100%;
-  }
+@media (max-width: 768px) {
+  .selector-tipo__opciones { grid-template-columns: minmax(0, 1fr); }
 }
 </style>

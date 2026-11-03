@@ -1,244 +1,126 @@
 <template>
-  <div class="historial-movimientos">
-    <div class="historial-header">
-      <h2 class="titulo-seccion">Historial de movimientos</h2>
-      <button class="btn btn-principal btn-pequeno" @click="$emit('registrar-movimiento')">
-        + Registrar movimiento
-      </button>
-    </div>
-
-    <div class="filtros-historial">
-      <div class="campo-busqueda">
-        <input
-          type="text"
-          placeholder="Buscar producto o movimiento..."
-          v-model="busqueda"
-        />
-      </div>
-      <div class="campo-tipo">
-        <select v-model="filtroTipo">
-          <option value="todos">Todos los tipos</option>
-          <option value="Entrada">Entradas</option>
-          <option value="Salida">Salidas</option>
-        </select>
-      </div>
-      <div class="campo-periodo">
-        <select v-model="filtroPeriodo">
-          <option value="30">Últimos 30 días</option>
-          <option value="7">Últimos 7 días</option>
-          <option value="90">Últimos 90 días</option>
-          <option value="todos">Todo el historial</option>
-        </select>
-      </div>
-    </div>
-
-    <div v-if="movimientosFiltrados.length === 0" class="estado-vacio">
-      <div class="icono-vacio">📭</div>
-      <p>No se encontraron movimientos.</p>
-    </div>
-
-    <table v-else class="tabla">
+  <div>
+    <table v-if="!esMovil" class="tabla tabla-escritorio">
       <thead>
         <tr>
-          <th>Fecha</th>
-          <th>Producto</th>
-          <th>Tipo</th>
-          <th>Cantidad</th>
-          <th>Usuario</th>
-          <th>Observación</th>
+          <th scope="col">Fecha</th>
+          <th scope="col">Producto / Motivo</th>
+          <th scope="col" class="celda-numero">{{ compacto ? 'Cant.' : 'Tipo / Cant.' }}</th>
+          <th scope="col" class="celda-numero">Saldo</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="movimiento in movimientosFiltrados" :key="movimiento.id_movimiento">
-          <td>{{ formatearFecha(movimiento.fecha_hora) }}</td>
-          <td>{{ getProductName(movimiento.id_producto) }}</td>
+        <tr v-for="movimiento in movimientos" :key="movimiento.id_movimiento">
+          <td class="celda-fecha">
+            <div class="fila-principal">
+              <span>{{ formatFechaCorta(movimiento.fecha_hora) }}</span>
+              <span>{{ formatHora(movimiento.fecha_hora) }}</span>
+            </div>
+          </td>
           <td>
-            <Badge :texto="movimiento.tipo_movimiento" :variante="getBadgeVariant(movimiento.tipo_movimiento)" />
+            <div class="fila-principal">
+              <span>{{ nombreProducto(movimiento) }}</span>
+              <span class="celda-sub">{{ descripcionMovimiento(movimiento) }}</span>
+            </div>
           </td>
-          <td :class="{ 'cantidad-negativa': movimiento.tipo_movimiento === 'Salida' }">
-            {{ movimiento.cantidad }}
+          <td class="celda-numero">
+            <div class="fila-principal fila-principal--fin">
+              <span v-if="!compacto" class="tipo-movimiento">
+                <Icon :nombre="movimiento.tipo_movimiento === 'Entrada' ? 'flecha-abajo' : 'flecha-arriba'" :tamano="14" />
+                {{ movimiento.tipo_movimiento }}
+              </span>
+              <span class="cantidad-movimiento">{{ formatCantidadConSigno(movimiento.tipo_movimiento, movimiento.cantidad) }}</span>
+            </div>
           </td>
-          <td>{{ getUserName(movimiento.id_usuario) }}</td>
-          <td>{{ movimiento.observacion || '-' }}</td>
+          <td class="celda-numero">{{ formatUnidades(movimiento.saldo) }}</td>
         </tr>
       </tbody>
     </table>
 
-    <div v-if="movimientosFiltrados.length > 0" class="resumen-historial">
-      <span class="resumen-total">
-        Total de movimientos: {{ movimientosFiltrados.length }}
-      </span>
-    </div>
+    <ul v-if="esMovil" class="lista-tarjetas">
+      <li v-for="movimiento in movimientos" :key="`tarjeta-${movimiento.id_movimiento}`" class="tarjeta-movimiento">
+        <p class="tipo-movimiento">
+          <Icon :nombre="movimiento.tipo_movimiento === 'Entrada' ? 'flecha-abajo' : 'flecha-arriba'" :tamano="14" />
+          {{ movimiento.tipo_movimiento }} · {{ formatCantidadConSigno(movimiento.tipo_movimiento, movimiento.cantidad) }}
+        </p>
+        <p class="texto-cuerpo">{{ nombreProducto(movimiento) }}</p>
+        <p class="texto-meta">
+          {{ formatFechaHoraCorta(movimiento.fecha_hora) }} · Saldo: {{ formatUnidades(movimiento.saldo) }}
+        </p>
+        <p class="texto-meta">{{ descripcionMovimiento(movimiento) }}</p>
+      </li>
+    </ul>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
-import { getMovements, getProducts, getCurrentUser, getCategoryName } from '@/services/store'
-import { users } from '@/data/users'
-import Badge from '@/components/common/Badge.vue'
+import Icon from '@/components/common/Icon.vue'
+import { findProduct } from '@/services/store'
+import { getUserDisplayName } from '@/data/users'
+import { useEsMovil } from '@/utils/useEsMovil'
+import { formatCantidadConSigno, formatFechaCorta, formatFechaHoraCorta, formatHora, formatUnidades } from '@/utils/format'
 
-const props = defineProps({
-  productoId: { type: [Number, String], default: null }
+defineProps({
+  movimientos: { type: Array, required: true },
+  compacto: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['registrar-movimiento'])
+const { esMovil } = useEsMovil()
 
-const busqueda = ref('')
-const filtroTipo = ref('todos')
-const filtroPeriodo = ref('30')
+const nombreProducto = (movimiento) => findProduct(movimiento.id_producto)?.nombre || 'Producto eliminado'
 
-const movimientos = ref(getMovements())
-const todosProductos = ref(getProducts())
-const listaUsuarios = users
-const usuarioActual = getCurrentUser()
-
-const getProductName = (idProducto) => {
-  const p = todosProductos.value.find(prod => prod.id_producto === idProducto)
-  return p ? p.nombre : 'Producto eliminado'
+const descripcionMovimiento = (movimiento) => {
+  const motivo = movimiento.motivo || 'Movimiento de stock'
+  return `${motivo} · ${getUserDisplayName(movimiento.id_usuario)}`
 }
-
-const getUserName = (idUsuario) => {
-  const u = listaUsuarios.find(user => user.id_usuario === idUsuario)
-  return u ? u.nombre : 'Usuario desconocido'
-}
-
-const getBadgeVariant = (tipo) => {
-  return tipo === 'Entrada' ? 'entrada' : 'salida'
-}
-
-const formatearFecha = (fechaHora) => {
-  if (!fechaHora) return '-'
-  const fecha = new Date(fechaHora)
-  return fecha.toLocaleDateString('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
-
-const movimientosFiltrados = computed(() => {
-  let resultado = movimientos.value
-
-  // Filtro por producto si se especifica
-  if (props.productoId) {
-    resultado = resultado.filter(m => m.id_producto === Number(props.productoId))
-  }
-
-  // Filtro por búsqueda
-  if (busqueda.value.trim()) {
-    const q = busqueda.value.toLowerCase()
-    resultado = resultado.filter(m => {
-      const prod = getProductName(m.id_producto).toLowerCase()
-      const user = getUserName(m.id_usuario).toLowerCase()
-      return prod.includes(q) || user.includes(q)
-    })
-  }
-
-  // Filtro por tipo
-  if (filtroTipo.value !== 'todos') {
-    resultado = resultado.filter(m => m.tipo_movimiento === filtroTipo.value)
-  }
-
-  // Filtro por período
-  if (filtroPeriodo.value !== 'todos') {
-    const dias = Number(filtroPeriodo.value)
-    const fechaLimite = new Date()
-    fechaLimite.setDate(fechaLimite.getDate() - dias)
-    resultado = resultado.filter(m => new Date(m.fecha_hora) >= fechaLimite)
-  }
-
-  // Ordenar por fecha descendente
-  return resultado.sort((a, b) => new Date(b.fecha_hora) - new Date(a.fecha_hora))
-})
 </script>
 
 <style scoped>
-.historial-movimientos {
-  max-width: 1000px;
-  margin: 0 auto;
+.fila-principal--fin {
+  align-items: flex-end;
 }
 
-.historial-header {
-  display: flex;
-  justify-content: space-between;
+.tipo-movimiento {
+  display: inline-flex;
   align-items: center;
-  margin-bottom: var(--espacio-20);
+  gap: var(--esp-4);
+  color: var(--azul-500);
+  font-size: 13px;
 }
 
-.titulo-seccion {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--color-azul-900);
+.cantidad-movimiento {
+  color: var(--azul-500);
+  font-variant-numeric: tabular-nums;
 }
 
-.filtros-historial {
+.lista-tarjetas {
+  display: none;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tarjeta-movimiento {
   display: flex;
-  gap: var(--espacio-12);
-  margin-bottom: var(--espacio-20);
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.campo-busqueda {
-  flex: 1;
-  min-width: 250px;
-}
-
-.campo-busqueda input {
-  width: 100%;
-  padding: var(--espacio-12);
-  font-family: var(--fuente-principal);
-  font-size: 14px;
+  flex-direction: column;
+  gap: var(--esp-4);
+  padding: var(--esp-16);
+  background-color: var(--superficie);
   border: var(--borde-base);
-  border-radius: var(--radio-borde);
-  background-color: var(--color-blanco);
+  border-radius: var(--radio-tarjeta);
 }
 
-.campo-tipo select,
-.campo-periodo select {
-  width: 100%;
-  padding: var(--espacio-12);
-  font-family: var(--fuente-principal);
-  font-size: 14px;
-  border: var(--borde-base);
-  border-radius: var(--radio-borde);
-  background-color: var(--color-blanco);
-  min-width: 200px;
-}
-
-.cantidad-negativa {
-  color: #D32F2F;
-  font-weight: 500;
-}
-
-.resumen-historial {
-  margin-top: var(--espacio-16);
-  padding-top: var(--espacio-16);
-  border-top: var(--borde-base);
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--espacio-16);
-}
-
-.resumen-total {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-azul-900);
+.tarjeta-movimiento + .tarjeta-movimiento {
+  margin-top: var(--esp-12);
 }
 
 @media (max-width: 768px) {
-  .filtros-historial {
-    flex-direction: column;
-    align-items: stretch;
+  .tabla-escritorio {
+    display: none;
   }
 
-  .campo-busqueda,
-  .campo-tipo,
-  .campo-periodo {
-    min-width: 100%;
+  .lista-tarjetas {
+    display: block;
   }
 }
 </style>

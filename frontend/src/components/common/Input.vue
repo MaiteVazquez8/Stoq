@@ -1,109 +1,116 @@
 <template>
-  <div class="campo-formulario" :class="{ 'con-error': error }">
-    <label :for="id" class="etiqueta">
-      {{ etiqueta }}
-      <span v-if="requerido" class="requerido"> *</span>
+  <div class="campo">
+    <label
+      class="campo-control"
+      :class="{ 'campo-control--error': !!error, 'campo-control--estatico': tipo === 'estatico' }"
+      :for="idCampo"
+    >
+      <span class="campo-etiqueta">
+        {{ etiqueta }}<span v-if="requerido" class="campo-obligatorio"> *</span>
+      </span>
+
+      <select
+        v-if="tipo === 'select'"
+        :id="idCampo"
+        class="campo-select"
+        :value="modelValue"
+        :disabled="deshabilitado"
+        :aria-describedby="descritoPor"
+        :aria-invalid="!!error"
+        @change="$emit('update:modelValue', $event.target.value)"
+      >
+        <option v-if="placeholder" value="">{{ placeholder }}</option>
+        <option
+          v-for="opcion in opcionesNormalizadas"
+          :key="opcion.valor"
+          :value="opcion.valor"
+        >
+          {{ opcion.texto }}
+        </option>
+      </select>
+
+      <textarea
+        v-else-if="tipo === 'textarea'"
+        :id="idCampo"
+        class="campo-area"
+        :value="modelValue"
+        :placeholder="placeholder"
+        :disabled="deshabilitado"
+        :rows="filas"
+        :aria-describedby="descritoPor"
+        :aria-invalid="!!error"
+        @input="$emit('update:modelValue', $event.target.value)"
+      ></textarea>
+
+      <span v-else-if="tipo === 'estatico'" class="campo-entrada" :id="idCampo">
+        <slot>{{ valorMostrado }}</slot>
+      </span>
+
+      <input
+        v-else
+        :id="idCampo"
+        class="campo-entrada"
+        :type="tipo"
+        :value="modelValue"
+        :placeholder="placeholder"
+        :disabled="deshabilitado"
+        :readonly="soloLectura"
+        :inputmode="inputmode"
+        :step="step"
+        :min="min"
+        :maxlength="maxlength"
+        :autocomplete="autocomplete"
+        :aria-describedby="descritoPor"
+        :aria-invalid="!!error"
+        @input="$emit('update:modelValue', $event.target.value)"
+      />
+
+      <span v-if="error" :id="`${idCampo}-error`" class="campo-error" role="alert">{{ error }}</span>
+      <span v-else-if="ayuda" :id="`${idCampo}-ayuda`" class="campo-ayuda">{{ ayuda }}</span>
     </label>
-
-    <component
-      :is="tipo"
-      :id="id"
-      v-model="valorInterno"
-      :placeholder="placeholder"
-      :disabled="disabled"
-      :class="{ error }"
-      @input="actualizarValor"
-    />
-
-    <div v-if="error" class="mensaje-error">{{ error }}</div>
-    <div v-else-if="textoAyuda" class="texto-ayuda">{{ textoAyuda }}</div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 
 const props = defineProps({
   etiqueta: { type: String, required: true },
-  tipo: { type: String, default: 'input' }, // input, select, textarea
-  id: { type: String, required: true },
-  valor: { type: [String, Number], default: '' },
+  modelValue: { type: [String, Number], default: '' },
+  tipo: { type: String, default: 'text' },
   placeholder: { type: String, default: '' },
-  requerido: { type: Boolean, default: false },
+  ayuda: { type: String, default: '' },
   error: { type: String, default: '' },
-  textoAyuda: { type: String, default: '' },
-  disabled: { type: Boolean, default: false }
+  requerido: { type: Boolean, default: false },
+  deshabilitado: { type: Boolean, default: false },
+  soloLectura: { type: Boolean, default: false },
+  opciones: { type: Array, default: () => [] },
+  filas: { type: [Number, String], default: 3 },
+  inputmode: { type: String, default: undefined },
+  step: { type: [String, Number], default: undefined },
+  min: { type: [String, Number], default: undefined },
+  maxlength: { type: [String, Number], default: undefined },
+  autocomplete: { type: String, default: 'off' },
+  nombre: { type: String, required: false, default: '' }
 })
 
-const emit = defineEmits(['update:valor'])
+defineEmits(['update:modelValue'])
 
-const valorInterno = ref(props.valor)
+const idCampo = computed(() =>
+  props.nombre ? `campo-${props.nombre}` : `campo-${props.etiqueta.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
+)
 
-const actualizarValor = (event) => {
-  const nuevoValor = event.target.value
-  valorInterno.value = nuevoValor
-  emit('update:valor', nuevoValor)
-}
-
-computed(() => {
-  valorInterno.value = props.valor
+const descritoPor = computed(() => {
+  if (props.error) return `${idCampo.value}-error`
+  if (props.ayuda) return `${idCampo.value}-ayuda`
+  return undefined
 })
+
+const opcionesNormalizadas = computed(() =>
+  props.opciones.map(opcion =>
+    typeof opcion === 'object' ? opcion : { valor: opcion, texto: opcion }
+  )
+)
+
+const valorMostrado = computed(() => (props.modelValue === '' || props.modelValue === null ? '—' : props.modelValue))
 </script>
-
-<style scoped>
-.campo-formulario {
-  display: flex;
-  flex-direction: column;
-  gap: var(--espacio-4);
-  margin-bottom: var(--espacio-16);
-}
-
-.etiqueta {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-negro);
-  display: flex;
-  align-items: center;
-}
-
-.requerido {
-  color: var(--color-azul-500);
-  margin-left: var(--espacio-4);
-}
-
-input,
-select,
-textarea {
-  padding: var(--espacio-12);
-  font-family: var(--fuente-principal);
-  font-size: 14px;
-  border: var(--borde-base);
-  border-radius: var(--radio-borde);
-  background-color: var(--color-blanco);
-  color: var(--color-negro);
-  width: 100%;
-}
-
-input:focus,
-select:focus,
-textarea:focus {
-  outline: none;
-  border-color: var(--color-azul-500);
-}
-
-input.error,
-select.error,
-textarea.error {
-  border-color: var(--color-error);
-}
-
-.mensaje-error {
-  font-size: 12px;
-  color: var(--color-error);
-}
-
-.texto-ayuda {
-  font-size: 12px;
-  color: var(--color-gris-texto);
-}
-</style>

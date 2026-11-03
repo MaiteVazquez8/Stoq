@@ -1,113 +1,108 @@
+// Catálogo de prueba de Casa Nube (emprendimiento ficticio).
+// Las existencias son coherentes con los movimientos registrados en movements.js:
+// el saldo inicial del período 21-27 oct 2026 es de 236 unidades y el actual, 262.
+
 export const products = [
   {
     id_producto: 1,
     codigo: 'VEL-001',
-    nombre: 'Vela de soja - Ámbar',
-    descripcion: 'Vela aromática de soja con esencia de ámbar. Duración aproximada 40 horas.',
+    nombre: 'Vela de soja · Ámbar',
+    descripcion: 'Vela de soja de 200 g. Aroma ámbar. Frasco de vidrio.',
     id_categoria: 1,
+    unidad_medida: 'Unidad',
     precio: 4500,
     stock_actual: 84,
     stock_minimo: 20,
-    fecha_creacion: '2026-09-15'
+    fecha_creacion: '2026-09-01'
   },
   {
     id_producto: 2,
-    codigo: 'MOU-002',
-    nombre: 'Mouse inalámbrico',
-    descripcion: 'Mouse óptico inalámbrico ergonómico, conexión USB.',
-    id_categoria: 4,
-    precio: 8500,
-    stock_actual: 12,
-    stock_minimo: 10,
-    fecha_creacion: '2026-09-10'
+    codigo: 'VEL-002',
+    nombre: 'Vela de soja · Lino',
+    descripcion: 'Vela de soja de 200 g. Aroma lino. Frasco de vidrio.',
+    id_categoria: 1,
+    unidad_medida: 'Unidad',
+    precio: 4500,
+    stock_actual: 56,
+    stock_minimo: 20,
+    fecha_creacion: '2026-09-01'
   },
   {
     id_producto: 3,
-    codigo: 'TEC-003',
-    nombre: 'Teclado mecánico',
-    descripcion: 'Teclado mecánico con switches azules, retroiluminado.',
-    id_categoria: 4,
-    precio: 25000,
-    stock_actual: 5,
-    stock_minimo: 8,
-    fecha_creacion: '2026-09-12'
+    codigo: 'VEL-003',
+    nombre: 'Vela de soja · Canela',
+    descripcion: 'Vela de soja de 200 g. Aroma canela. Frasco de vidrio.',
+    id_categoria: 1,
+    unidad_medida: 'Unidad',
+    precio: 4700,
+    stock_actual: 30,
+    stock_minimo: 12,
+    fecha_creacion: '2026-09-22'
   },
   {
     id_producto: 4,
-    codigo: 'MON-004',
-    nombre: 'Monitor LED 24"',
-    descripcion: 'Monitor LED Full HD 24 pulgadas, puerto HDMI y VGA.',
-    id_categoria: 1,
-    precio: 89000,
-    stock_actual: 3,
-    stock_minimo: 4,
-    fecha_creacion: '2026-09-08'
+    codigo: 'DIF-001',
+    nombre: 'Difusor · Bosque',
+    descripcion: 'Difusor de ambiente de 250 ml con varillas de mimbre.',
+    id_categoria: 2,
+    unidad_medida: 'Unidad',
+    precio: 8900,
+    stock_actual: 42,
+    stock_minimo: 12,
+    fecha_creacion: '2026-09-05'
   },
   {
     id_producto: 5,
-    codigo: 'AUR-005',
-    nombre: 'Auriculares',
-    descripcion: 'Auriculares diadema con micrófono, conector de 3.5mm.',
+    codigo: 'DIF-002',
+    nombre: 'Difusor · Cítrico',
+    descripcion: 'Difusor de ambiente de 250 ml con varillas de mimbre.',
     id_categoria: 2,
-    precio: 12000,
+    unidad_medida: 'Unidad',
+    precio: 8900,
     stock_actual: 18,
-    stock_minimo: 15,
-    fecha_creacion: '2026-09-14'
+    stock_minimo: 20,
+    fecha_creacion: '2026-09-05'
   },
   {
     id_producto: 6,
-    codigo: 'USB-006',
-    nombre: 'Cable USB',
-    descripcion: 'Cable USB tipo C a USB A, 1 metro, carga y transferencia de datos.',
+    codigo: 'SPR-001',
+    nombre: 'Home spray · Bruma',
+    descripcion: 'Home spray de 100 ml. Aroma bruma y eucalipto.',
     id_categoria: 3,
-    precio: 3500,
-    stock_actual: 45,
-    stock_minimo: 30,
-    fecha_creacion: '2026-09-11'
+    unidad_medida: 'Unidad',
+    precio: 5200,
+    stock_actual: 8,
+    stock_minimo: 10,
+    fecha_creacion: '2026-09-12'
   },
   {
     id_producto: 7,
-    codigo: 'WEB-007',
-    nombre: 'Webcam',
-    descripcion: 'Webcam Full HD 1080p con micrófono integrado.',
-    id_categoria: 1,
-    precio: 18000,
-    stock_actual: 2,
-    stock_minimo: 5,
-    fecha_creacion: '2026-09-09'
+    codigo: 'SPR-002',
+    nombre: 'Home spray · Cedro',
+    descripcion: 'Home spray de 100 ml. Aroma cedro y vetiver.',
+    id_categoria: 3,
+    unidad_medida: 'Unidad',
+    precio: 5200,
+    stock_actual: 0,
+    stock_minimo: 10,
+    fecha_creacion: '2026-09-12'
   },
   {
     id_producto: 8,
-    codigo: 'PAR-008',
-    nombre: 'Parlantes',
-    descripcion: 'Parlantes estéreo USB, potencia 10W RMS.',
-    id_categoria: 2,
-    precio: 15000,
-    stock_actual: 7,
-    stock_minimo: 6,
-    fecha_creacion: '2026-09-13'
-  },
-  {
-    id_producto: 9,
-    codigo: 'ADP-009',
-    nombre: 'Adaptador HDMI',
-    descripcion: 'Adaptador USB-C a HDMI, soporte 4K.',
-    id_categoria: 3,
-    precio: 7500,
-    stock_actual: 25,
-    stock_minimo: 12,
-    fecha_creacion: '2026-09-16'
+    codigo: 'REP-001',
+    nombre: 'Repuesto de mecha',
+    descripcion: 'Kit de repuesto: mecha de algodón y soporte metálico.',
+    id_categoria: 4,
+    unidad_medida: 'Pack',
+    precio: 1900,
+    stock_actual: 24,
+    stock_minimo: 8,
+    fecha_creacion: '2026-09-28'
   }
 ]
 
-export const getProductById = (id) => {
-  return products.find(p => p.id_producto === id)
-}
+export const getProductById = (idProducto) =>
+  products.find(p => p.id_producto === Number(idProducto))
 
-export const getProductByCode = (codigo) => {
-  return products.find(p => p.codigo === codigo)
-}
-
-export const isStockLow = (product) => {
-  return product.stock_actual < product.stock_minimo
-}
+export const getProductByCode = (codigo) =>
+  products.find(p => p.codigo.toLowerCase() === String(codigo || '').trim().toLowerCase())

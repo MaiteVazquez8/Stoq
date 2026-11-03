@@ -1,55 +1,26 @@
 <template>
-  <span class="badge" :class="claseBadge" :style="{ border }">
-    {{ texto }}
+  <span class="badge-stock" :class="`badge-stock--${estado}`">
+    <Icon v-if="estado === 'suficiente'" nombre="check" :tamano="14" />
+    <span v-else-if="estado === 'bajo'" aria-hidden="true">!</span>
+    <Icon v-else nombre="equis" :tamano="14" />
+    <span>{{ etiqueta }}</span>
   </span>
 </template>
 
 <script setup>
-defineProps({
-  texto: { type: String, required: true },
-  variante: { type: String, default: 'stock-ok' } // stock-ok, stock-bajo, entrada, salida
+import { computed } from 'vue'
+import Icon from '@/components/common/Icon.vue'
+
+const props = defineProps({
+  // 'suficiente' | 'bajo' | 'agotado'
+  estado: { type: String, default: 'suficiente' },
+  texto: { type: String, default: '' }
 })
 
-const claseBadge = computed(() => `badge-${variante}`)
-
-const border = computed(() => {
-  switch (variante) {
-    case 'stock-bajo': return '1px solid #FFCDD2'
-    case 'stock-ok': return '1px solid var(--color-azul-200)'
-    case 'entrada': return '1px solid var(--color-azul-200)'
-    case 'salida': return '1px solid #FFCDD2'
-    default: return '1px solid var(--color-azul-200)'
-  }
+const etiqueta = computed(() => {
+  if (props.texto) return props.texto
+  if (props.estado === 'agotado') return 'Agotado'
+  if (props.estado === 'bajo') return 'Stock bajo'
+  return 'Suficiente'
 })
 </script>
-
-<style scoped>
-.badge {
-  display: inline-flex;
-  align-items: center;
-  padding: var(--espacio-4) var(--espacio-8);
-  font-size: 12px;
-  font-weight: 500;
-  border-radius: 20px;
-}
-
-.badge-stock-bajo {
-  background-color: #FFEBEE;
-  color: #D32F2F;
-}
-
-.badge-stock-ok {
-  background-color: var(--color-azul-50);
-  color: var(--color-azul-900);
-}
-
-.badge-entrada {
-  background-color: var(--color-azul-50);
-  color: var(--color-azul-900);
-}
-
-.badge-salida {
-  background-color: #FFEBEE;
-  color: #D32F2F;
-}
-</style>

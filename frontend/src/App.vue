@@ -1,19 +1,12 @@
 <template>
-  <div id="app">
-    <router-view v-slot="{ Component, meta }">
-      <transition name="fade" mode="out-in">
-        <component
-          :is="Component"
-          v-if="meta.publico"
-        />
-        <AppLayout v-else>
-          <template #default>
-            <component :is="Component" />
-          </template>
-        </AppLayout>
-      </transition>
-    </router-view>
-  </div>
+  <RouterView v-slot="{ Component, route }">
+    <Transition name="fade" mode="out-in">
+      <Component :is="Component" v-if="route.meta.publico" key="publico" />
+      <AppLayout v-else key="app">
+        <Component :is="Component" />
+      </AppLayout>
+    </Transition>
+  </RouterView>
 </template>
 
 <script setup>
@@ -21,16 +14,9 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 </script>
 
 <style>
-#app {
-  font-family: 'Roboto', sans-serif;
-  background-color: var(--color-blanco);
-  color: var(--color-negro);
-  min-height: 100vh;
-}
-
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.25s ease;
+  transition: opacity 0.2s ease;
 }
 
 .fade-enter-from,

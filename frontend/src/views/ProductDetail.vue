@@ -1,329 +1,170 @@
 <template>
-  <div class="detalle-page">
-    <div class="page-header">
-      <button class="btn-volver" @click="volver">
-        ← Volver a productos
-      </button>
-      <div class="info-producto">
-        <h1>{{ producto?.nombre }}</h1>
-        <span class="sku-producto">SKU: {{ producto?.codigo }}</span>
+  <div v-if="producto" class="pila--24">
+    <PageHeader
+      :titulo="producto.nombre"
+      :subtitulo="`${producto.codigo} · ${getCategoryName(producto.id_categoria)} · ${producto.unidad_medida || 'Unidad'}`"
+    >
+      <template #acciones>
+        <Button @click="irRegistrarMovimiento">Registrar movimiento</Button>
+      </template>
+    </PageHeader>
+
+    <section class="panel destacado">
+      <p class="destacado__stock">{{ formatUnidadesLargas(producto.stock_actual) }}</p>
+
+      <p class="destacado__estado">
+        <Badge :estado="estado" />
+        <span class="texto-secundario">· Mínimo: {{ formatUnidades(producto.stock_minimo) }}</span>
+      </p>
+
+      <p class="destacado__detalle">{{ detalleStock }}</p>
+
+      <p v-if="producto.descripcion" class="texto-cuerpo">{{ producto.descripcion }}</p>
+
+      <p class="texto-meta">
+        Precio: {{ formatPrecio(producto.precio) }} ·
+        Creado el {{ formatFechaConMes(producto.fecha_creacion) }} ·
+        Último movimiento: {{ ultimoMovimiento }}
+      </p>
+
+      <div v-if="esAdmin">
+        <RouterLink class="enlace-accion" :to="{ name: 'producto-editar', params: { id: producto.id_producto } }">
+          Editar producto
+          <Icon nombre="flecha-derecha" :tamano="16" />
+        </RouterLink>
       </div>
-    </div>
+    </section>
 
-    <div class="stock-principal">
-      <span class="numero-stock">{{ producto?.stock_actual }}</span>
-      <span class="label-stock">unidades</span>
-    </div>
-
-    <Alert v-if="alertaStockBajo" tipo="advertencia" :mensaje="alertaStockBajo" />
-
-    <div class="detalle-contenido">
-      <div class="columna-principal">
-        <div class="info-basica">
-          <div class="fila-info">
-            <span class="label-info">Categoría:</span>
-            <span class="valor-info">{{ categoriaNombre }}</span>
-          </div>
-          <div class="fila-info">
-            <span class="label-info">Precio:</span>
-            <span class="valor-info precio">{{ formatCurrency(producto?.precio) }}</span>
-          </div>
-          <div class="fila-info">
-            <span class="label-info">Stock mínimo:</span>
-            <span class="valor-info">{{ producto?.stock_minimo || 'No definido' }}</span>
-          </div>
-          <div class="fila-info">
-            <span class="label-info">Fecha de creación:</span>
-            <span class="valor-info">{{ formatearFecha(producto?.fecha_creacion) }}</span>
-          </div>
-        </div>
-
-        <div v-if="producto?.descripcion" class="descripcion-panel">
-          <h3 class="titulo-descripcion">Descripción</h3>
-          <p class="texto-descripcion">{{ producto.descripcion }}</p>
-        </div>
-
-        <div class="acciones-detalle">
-          <button
-            v-if="esAdmin"
-            class="btn-editar"
-            @click="irEditar"
-          >
-            ✏️ Editar producto
-          </button>
-          <button
-            class="btn-movimiento"
-            @click="irMovimiento"
-          >
-            🔄 Registrar movimiento
-          </button>
-        </div>
+    <section class="panel">
+      <div class="panel__cabecera">
+        <h3 class="panel-titulo">Evolución de existencias</h3>
+        <p class="grafico__leyenda">
+          <span class="grafico__leyenda-item">
+            <span class="grafico__marca grafico__marca--punto"></span>
+            Existencias · unidades · {{ negocio.periodo }}
+          </span>
+        </p>
       </div>
 
-      <div class="columna-secundaria">
-        <div class="panel-movimientos">
-          <h3 class="titulo-panel">Movimientos de {{ producto?.codigo }}</h3>
-          <MovementTable :producto-id="productoId" />
-        </div>
+      <LineChart
+        :valores="serie.valores"
+        :etiquetas="serie.etiquetas"
+        :altura="200"
+        :descripcion="`Evolución de existencias de ${producto.nombre}`"
+      />
+    </section>
+
+    <section class="panel">
+      <div class="panel__cabecera">
+        <h3 class="panel-titulo">Movimientos de {{ producto.codigo }}</h3>
       </div>
-    </div>
+
+      <MovementTable v-if="movimientos.length" :movimientos="movimientos" compacto />
+
+      <EmptyState
+        v-else
+        icono="movimientos"
+        titulo="Sin movimientos registrados"
+        texto="Cuando registres una entrada o una salida vas a poder verla acá."
+      />
+
+      <div class="panel__pie">
+        <RouterLink
+          class="enlace-accion"
+          :to="{ name: 'movimientos', query: { producto: producto.id_producto } }"
+        >
+          Consultar historial de este producto
+          <Icon nombre="flecha-derecha" :tamano="16" />
+        </RouterLink>
+      </div>
+    </section>
   </div>
+
+  <EmptyState
+    v-else
+    icono="buscar"
+    titulo="No encontramos el producto"
+    texto="El producto que buscás no existe o fue dado de baja."
+  >
+    <template #acciones>
+      <Button variante="secundario" @click="volverAProductos">Volver a productos</Button>
+    </template>
+  </EmptyState>
 </template>
 
 <script setup>
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import {
-  getProduct,
-  getCategoryName,
-  formatCurrency,
-  isStockLow,
-  isAdmin
-} from '@/services/store'
+import Badge from '@/components/common/Badge.vue'
+import Button from '@/components/common/Button.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
+import Icon from '@/components/common/Icon.vue'
+import LineChart from '@/components/common/LineChart.vue'
 import MovementTable from '@/components/inventory/MovementTable.vue'
-import Alert from '@/components/common/Alert.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
+import { findProduct, isAdmin } from '@/services/store'
+import { estadoStock, movimientosDeProducto, serieExistencias } from '@/services/analytics'
+import { getCategoryName } from '@/data/categories'
+import { formatFechaConMes, formatFechaHoraCorta, formatPrecio, formatUnidades, formatUnidadesLargas } from '@/utils/format'
+import { negocio } from '@/data/business'
 
 const route = useRoute()
 const router = useRouter()
-const productoId = Number(route.params.id)
 
-const esAdmin = isAdmin()
+const producto = computed(() => findProduct(route.params.id))
+const esAdmin = computed(() => isAdmin.value)
 
-const producto = computed(() => getProduct(productoId))
+const estado = computed(() => estadoStock(producto.value))
+const serie = computed(() => serieExistencias(producto.value?.id_producto))
+const movimientos = computed(() =>
+  producto.value ? movimientosDeProducto(producto.value.id_producto).slice(0, 5) : []
+)
 
-const categoriaNombre = computed(() => {
-  if (!producto.value) return '-'
-  return getCategoryName(producto.value.id_categoria)
+const ultimoMovimiento = computed(() => {
+  const ultimo = movimientos.value[0]
+  if (!ultimo) return 'sin movimientos'
+  const esDeHoy = ultimo.fecha_hora.slice(0, 10) === negocio.hoy.slice(0, 10)
+  return esDeHoy
+    ? `hoy, ${formatFechaHoraCorta(ultimo.fecha_hora).split(' · ')[1] || ''}`
+    : formatFechaHoraCorta(ultimo.fecha_hora)
 })
 
-const alertaStockBajo = computed(() => {
+const detalleStock = computed(() => {
   if (!producto.value) return ''
-  if (isStockLow(producto.value)) {
-    return `Stock bajo: ${producto.value.stock_actual} unidad(es), mínimo ${producto.value.stock_minimo}.`
+  if (estado.value === 'agotado') {
+    return 'Sin unidades disponibles. Registrá una entrada para volver a tener stock.'
   }
-  return ''
+  if (estado.value === 'bajo') {
+    const faltante = producto.value.stock_minimo - producto.value.stock_actual
+    return `Faltan ${formatUnidades(faltante)} para alcanzar el mínimo.`
+  }
+  const excedente = producto.value.stock_actual - producto.value.stock_minimo
+  return `${formatUnidadesLargas(excedente)} por encima del mínimo.`
 })
 
-const volver = () => router.push({ name: 'productos' })
-const irEditar = () => router.push({ name: 'producto-editar', params: { id: productoId } })
-const irMovimiento = () => {
-  router.push({ name: 'registrar-movimiento', query: { producto: productoId } })
-}
+const irRegistrarMovimiento = () =>
+  router.push({ name: 'movimiento-registrar', query: { producto: producto.value.id_producto } })
 
-const formatearFecha = (fecha) => {
-  if (!fecha) return '-'
-  return new Date(fecha).toLocaleDateString('es-AR')
-}
+const volverAProductos = () => router.push({ name: 'productos' })
 </script>
 
 <style scoped>
-.detalle-page {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: var(--espacio-24);
-  background-color: var(--color-gris-fondo);
-  min-height: 100vh;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--espacio-24);
-  flex-wrap: wrap;
-  gap: var(--espacio-16);
-}
-
-.btn-volver {
-  padding: var(--espacio-10) var(--espacio-16);
-  font-family: var(--fuente-principal);
-  font-size: 14px;
-  color: var(--color-azul-500);
-  background: none;
-  border: 1px solid var(--color-azul-500);
-  border-radius: var(--radio-borde);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: var(--espacio-6);
-}
-
-.btn-volver:hover {
-  background-color: var(--color-azul-50);
-}
-
-.info-producto h1 {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--color-negro);
-  margin: 0 0 var(--espacio-4) 0;
-}
-
-.sku-producto {
-  font-size: 14px;
-  color: var(--color-gris-oscuro);
-  font-family: 'Roboto', monospace;
-}
-
-.stock-principal {
-  background-color: var(--color-blanco);
-  border: var(--borde-base);
-  border-radius: var(--radio-borde);
-  padding: var(--espacio-24);
-  text-align: center;
-  margin-bottom: var(--espacio-24);
-}
-
-.numero-stock {
-  font-size: 48px;
-  font-weight: 700;
-  color: var(--color-negro);
-}
-
-.label-stock {
-  font-size: 14px;
-  color: var(--color-gris-oscuro);
-}
-
-.detalle-contenido {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: var(--espacio-24);
-}
-
-.columna-principal {
+.destacado {
   display: flex;
   flex-direction: column;
-  gap: var(--espacio-20);
+  gap: var(--esp-8);
 }
 
-.info-basica {
-  background-color: var(--color-blanco);
-  border: var(--borde-base);
-  border-radius: var(--radio-borde);
-  padding: var(--espacio-24);
+.destacado__stock { font-size: 36px; font-weight: 600; }
+.destacado__estado { display: flex; align-items: center; gap: var(--esp-8); }
+.destacado__detalle { color: var(--texto-secundario); }
+
+.panel__cabecera {
   display: flex;
   flex-direction: column;
-  gap: var(--espacio-12);
+  gap: var(--esp-4);
+  margin-bottom: var(--esp-16);
 }
 
-.fila-info {
-  display: flex;
-  justify-content: space-between;
-  font-size: 14px;
-}
-
-.label-info {
-  color: var(--color-gris-oscuro);
-}
-
-.valor-info {
-  font-weight: 500;
-  color: var(--color-negro);
-}
-
-.valor-info.precio {
-  color: var(--color-azul-900);
-  font-weight: 700;
-}
-
-.descripcion-panel {
-  background-color: var(--color-blanco);
-  border: var(--borde-base);
-  border-radius: var(--radio-borde);
-  padding: var(--espacio-24);
-}
-
-.titulo-descripcion {
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--color-negro);
-  margin: 0 0 var(--espacio-12) 0;
-}
-
-.texto-descripcion {
-  font-size: 14px;
-  color: var(--color-negro);
-  line-height: 1.6;
-  margin: 0;
-}
-
-.acciones-detalle {
-  display: flex;
-  gap: var(--espacio-12);
-}
-
-.acciones-detalle .btn-editar,
-.acciones-detalle .btn-movimiento {
-  flex: 1;
-  padding: var(--espacio-14);
-  font-family: var(--fuente-principal);
-  font-size: 14px;
-  font-weight: 500;
-  border: none;
-  border-radius: var(--radio-borde);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--espacio-8);
-}
-
-.btn-editar {
-  background-color: var(--color-azul-500);
-  color: var(--color-blanco);
-}
-
-.btn-editar:hover {
-  background-color: #1976D2;
-}
-
-.btn-movimiento {
-  background-color: var(--color-blanco);
-  color: var(--color-azul-900);
-  border: var(--borde-base);
-}
-
-.btn-movimiento:hover {
-  background-color: var(--color-gris-fondo);
-}
-
-.columna-secundaria {
-  display: flex;
-  flex-direction: column;
-  gap: var(--espacio-16);
-}
-
-.panel-movimientos {
-  background-color: var(--color-blanco);
-  border: var(--borde-base);
-  border-radius: var(--radio-borde);
-  padding: var(--espacio-24);
-}
-
-.titulo-panel {
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--color-negro);
-  margin: 0 0 var(--espacio-16) 0;
-}
-
-@media (max-width: 768px) {
-  .detalle-page {
-    padding: var(--espacio-16);
-  }
-
-  .detalle-contenido {
-    grid-template-columns: 1fr;
-  }
-
-  .acciones-detalle {
-    flex-direction: column;
-  }
-
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-}
+.panel__pie { margin-top: var(--esp-16); }
 </style>

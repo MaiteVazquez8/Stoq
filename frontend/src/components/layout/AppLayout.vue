@@ -1,50 +1,50 @@
 <template>
-  <div class="app-layout">
-    <Sidebar />
-    <Navbar />
-    <main class="contenido-principal">
-      <router-view v-slot="{ Component }">
-        <transition name="fade" mode="out-in">
-          <component :is="Component" />
-        </transition>
-      </router-view>
-    </main>
+  <div class="app">
+    <AppSidebar />
+
+    <div class="contenido-app">
+      <AppTopbar />
+
+      <div class="barra-movil">
+        <RouterLink class="marca" :to="{ name: 'panel' }" aria-label="Stoq, ir al panel">
+          <span class="marca__texto">stoq</span><span class="marca__punto">.</span>
+        </RouterLink>
+        <p>
+          {{ negocio.nombre }} <span class="separador">/</span>
+          <strong>{{ seccion }}</strong>
+        </p>
+        <button
+          type="button"
+          class="enlace-tema"
+          :aria-label="oscuro ? 'Activar modo claro' : 'Activar modo oscuro'"
+          @click="toggleTheme"
+        >
+          <Icon :nombre="oscuro ? 'sol' : 'luna'" :tamano="16" />
+        </button>
+      </div>
+
+      <main class="contenido-vista">
+        <slot />
+      </main>
+
+      <AppFooter />
+      <AppMobileNav />
+    </div>
   </div>
 </template>
 
 <script setup>
-import Sidebar from '@/components/layout/Sidebar.vue'
-import Navbar from '@/components/layout/Navbar.vue'
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+import AppSidebar from '@/components/layout/AppSidebar.vue'
+import AppTopbar from '@/components/layout/AppTopbar.vue'
+import AppMobileNav from '@/components/layout/AppMobileNav.vue'
+import AppFooter from '@/components/layout/AppFooter.vue'
+import Icon from '@/components/common/Icon.vue'
+import { isDarkTheme, toggleTheme } from '@/services/store'
+import { negocio } from '@/data/business'
+
+const route = useRoute()
+const seccion = computed(() => route.meta.seccion || 'Panel')
+const oscuro = computed(() => isDarkTheme.value)
 </script>
-
-<style scoped>
-.app-layout {
-  display: flex;
-  min-height: 100vh;
-}
-
-.contenido-principal {
-  flex: 1;
-  margin-left: 260px;
-  padding: var(--espacio-24);
-  background-color: var(--color-gris-fondo);
-  min-height: 100vh;
-}
-
-@media (max-width: 768px) {
-  .contenido-principal {
-    margin-left: 0;
-    padding: var(--espacio-16);
-  }
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-</style>

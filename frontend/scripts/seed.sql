@@ -1,0 +1,1 @@
+--Sql con datos de prueba para la base de datos de Stoq

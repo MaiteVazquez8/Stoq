@@ -1,0 +1,1 @@
+--Sql de la base de datos de Stoq

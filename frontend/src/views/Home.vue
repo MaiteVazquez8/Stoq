@@ -2,7 +2,7 @@
   <div class="inicio">
     <header class="inicio__barra">
       <RouterLink class="marca" :to="{ name: 'inicio' }" aria-label="Stoq, volver al inicio">
-        <span class="marca__texto">stoq</span><span class="marca__punto">.</span>
+        <Marca variante="horizontal" :altura="28" />
       </RouterLink>
 
       <nav class="inicio__nav" aria-label="Secciones del inicio">
@@ -193,7 +193,10 @@
       <div class="fila">
         <Button grande @click="irIngresar">Ingresar a Stoq</Button>
       </div>
-      <p class="texto-meta">stoq. · © 2026 · Simple, como debería ser.</p>
+      <p class="texto-meta pie-copyright">
+        <Marca variante="isotipo" :altura="14" />
+        <span>© 2026 · Simple, como debería ser.</span>
+      </p>
     </section>
   </div>
 </template>
@@ -204,6 +207,7 @@ import { useRouter } from 'vue-router'
 import Badge from '@/components/common/Badge.vue'
 import Button from '@/components/common/Button.vue'
 import Icon from '@/components/common/Icon.vue'
+import Marca from '@/components/common/Marca.vue'
 import LineChart from '@/components/common/LineChart.vue'
 import StatCard from '@/components/common/StatCard.vue'
 import { isDarkTheme, toggleTheme } from '@/services/store'
@@ -305,6 +309,23 @@ const PREGUNTAS = [
   background-color: var(--azul-50);
 }
 
+.dark .inicio__hero {
+  background: linear-gradient(90deg, #171717 0%, #132d55 100%);
+}
+
+.dark .inicio__hero .btn-grande {
+  background-color: var(--azul-200);
+  color: #0D47A1;
+}
+
+.dark .inicio__hero .btn-grande:hover:not(:disabled) {
+  background-color: #AED4FA;
+}
+
+.dark .inicio__bajada { color: var(--texto-secundario); }
+.dark .inicio__sellos li { color: var(--texto-secundario); }
+.dark .inicio__sellos .icono { color: var(--acento); }
+
 .inicio__hero h1,
 .inicio__hero .inicio__bajada { max-width: 780px; }
 
@@ -349,6 +370,16 @@ const PREGUNTAS = [
   border-radius: var(--radio-bloque);
 }
 
+.dark .inicio__vista-previa {
+  background-color: var(--superficie);
+  border: 1px solid #262626;
+}
+
+.dark .inicio__vista-previa .panel {
+  background-color: transparent;
+  border-color: #262626;
+}
+
 .inicio__vista-titulo { font-size: 13px; color: var(--texto-secundario); }
 
 .inicio__vista-previa .panel { background-color: var(--superficie); }
@@ -360,6 +391,11 @@ const PREGUNTAS = [
   padding: var(--esp-24);
   background-color: var(--n-50);
   border-radius: var(--radio-tarjeta);
+}
+
+.dark .inicio__beneficio {
+  background-color: var(--superficie);
+  border: 1px solid #262626;
 }
 
 .inicio__bloque {
@@ -384,8 +420,22 @@ const PREGUNTAS = [
   border-radius: var(--radio-bloque);
 }
 
+.dark .inicio__bloque-panel {
+  background-color: var(--superficie);
+  border: 1px solid #262626;
+}
+
 .inicio__bloque-panel .tabla td,
 .inicio__bloque-panel .tabla th { padding-left: 0; }
+
+.dark .inicio__bloque-panel .tabla th,
+.dark .inicio__bloque-panel .tabla td {
+  border-bottom-color: #262626;
+}
+
+.dark .inicio__pregunta {
+  border-color: #262626;
+}
 
 .stock-valor { font-weight: 500; font-variant-numeric: tabular-nums; }
 
@@ -396,6 +446,10 @@ const PREGUNTAS = [
   padding: var(--esp-24);
   background-color: var(--superficie);
   border-radius: var(--radio-tarjeta);
+}
+
+.dark .inicio__movimiento {
+  border: 1px solid #262626;
 }
 
 .tipo-movimiento {
@@ -421,6 +475,12 @@ const PREGUNTAS = [
 
 .inicio__preguntas { margin: 0; }
 
+.pie-copyright {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-8);
+}
+
 .inicio__pregunta {
   padding: var(--esp-16) 0;
   border-bottom: var(--borde-base);
@@ -435,6 +495,19 @@ const PREGUNTAS = [
   gap: var(--esp-16);
   padding: var(--esp-64) var(--esp-24) var(--esp-48);
   background-color: var(--azul-50);
+}
+
+.dark .inicio__cierre {
+  background: linear-gradient(90deg, #171717 0%, #132d55 100%);
+}
+
+.dark .inicio__cierre .btn-grande {
+  background-color: var(--azul-200);
+  color: #0D47A1;
+}
+
+.dark .inicio__cierre .btn-grande:hover:not(:disabled) {
+  background-color: #AED4FA;
 }
 
 @media (max-width: 768px) {

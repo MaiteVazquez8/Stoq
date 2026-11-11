@@ -792,17 +792,11 @@ button {
 
 .marca {
   display: inline-flex;
-  align-items: baseline;
-  gap: 2px;
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  color: var(--texto);
+  align-items: center;
   text-decoration: none;
 }
 
 .marca:hover { text-decoration: none; }
-.marca__punto { color: var(--azul-500); }
 
 .sidebar__negocio { font-size: 13px; color: var(--texto-secundario); margin-top: var(--esp-4); }
 

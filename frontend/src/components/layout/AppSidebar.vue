@@ -2,7 +2,7 @@
   <aside class="sidebar">
     <div>
       <RouterLink class="marca" :to="{ name: 'panel' }" aria-label="Stoq, ir al panel">
-        <span class="marca__texto">stoq</span><span class="marca__punto">.</span>
+        <Marca variante="horizontal" :altura="26" />
       </RouterLink>
       <p class="sidebar__negocio">{{ negocio.nombre }}</p>
     </div>
@@ -26,6 +26,7 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import Icon from '@/components/common/Icon.vue'
+import Marca from '@/components/common/Marca.vue'
 import { isAdmin } from '@/services/store'
 import { negocio } from '@/data/business'
 

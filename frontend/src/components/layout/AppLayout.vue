@@ -7,7 +7,7 @@
 
       <div class="barra-movil">
         <RouterLink class="marca" :to="{ name: 'panel' }" aria-label="Stoq, ir al panel">
-          <span class="marca__texto">stoq</span><span class="marca__punto">.</span>
+          <Marca variante="isotipo" :altura="20" />
         </RouterLink>
         <p>
           {{ negocio.nombre }} <span class="separador">/</span>
@@ -41,6 +41,7 @@ import AppTopbar from '@/components/layout/AppTopbar.vue'
 import AppMobileNav from '@/components/layout/AppMobileNav.vue'
 import AppFooter from '@/components/layout/AppFooter.vue'
 import Icon from '@/components/common/Icon.vue'
+import Marca from '@/components/common/Marca.vue'
 import { isDarkTheme, toggleTheme } from '@/services/store'
 import { negocio } from '@/data/business'
 

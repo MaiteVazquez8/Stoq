@@ -2,7 +2,7 @@
   <div class="ingreso">
     <header class="ingreso__barra">
       <RouterLink class="marca" :to="{ name: 'inicio' }" aria-label="Stoq, volver al inicio">
-        <span class="marca__texto">stoq</span><span class="marca__punto">.</span>
+        <Marca variante="horizontal" :altura="28" />
       </RouterLink>
 
       <div class="ingreso__barra-acciones">
@@ -19,12 +19,12 @@
 
     <div class="ingreso__cuerpo">
       <section class="ingreso__presentacion">
+        <Marca variante="vertical" :altura="96" />
         <h1 class="ingreso__titulo">Tu stock merece un lugar más simple.</h1>
         <p class="ingreso__bajada">
           Volvé a tu espacio y seguí con lo que importa: hacer crecer tu emprendimiento.
         </p>
         <p class="ingreso__negocio">{{ negocio.etiqueta }}</p>
-        <p class="ingreso__unidades">stoq</p>
         <p class="texto-secundario">tu stock, en claro.</p>
       </section>
 
@@ -96,6 +96,7 @@ import Alert from '@/components/common/Alert.vue'
 import Button from '@/components/common/Button.vue'
 import Icon from '@/components/common/Icon.vue'
 import Input from '@/components/common/Input.vue'
+import Marca from '@/components/common/Marca.vue'
 import { isDarkTheme, login, toggleTheme } from '@/services/store'
 import { restablecerContrasena } from '@/services/auth'
 import { hayErrores } from '@/utils/validation'
@@ -214,10 +215,13 @@ const olvidoContrasena = async () => {
   justify-content: center;
 }
 
+.dark .ingreso__presentacion { background-color: var(--superficie); }
+.dark .ingreso__bajada { color: var(--texto-secundario); }
+.dark .ingreso__negocio { color: var(--azul-200); }
+
 .ingreso__titulo { font-size: 44px; font-weight: 600; line-height: 1.2; }
 .ingreso__bajada { font-size: 16px; color: var(--n-600); max-width: 460px; }
 .ingreso__negocio { font-size: 15px; font-weight: 500; color: var(--azul-900); margin-top: var(--esp-16); }
-.ingreso__unidades { font-size: 56px; font-weight: 600; line-height: 1; }
 
 .ingreso__formulario {
   display: flex;
@@ -245,7 +249,6 @@ const olvidoContrasena = async () => {
   .ingreso__cuerpo { grid-template-columns: minmax(0, 1fr); }
   .ingreso__presentacion { padding: var(--esp-32) var(--esp-24); }
   .ingreso__titulo { font-size: 34px; }
-  .ingreso__unidades { font-size: 44px; }
-  .ingreso__formulario { padding: var(--esp-32) var(--esp-16); }
+    .ingreso__formulario { padding: var(--esp-32) var(--esp-16); }
 }
 </style>

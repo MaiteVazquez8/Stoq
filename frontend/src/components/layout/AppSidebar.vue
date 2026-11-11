@@ -42,6 +42,9 @@ const items = computed(() => {
 
   if (isAdmin.value) {
     base.push({ name: 'categorias', label: 'Categorías', icono: 'etiqueta', coincidencias: ['categorias'] })
+    base.push({ name: 'proveedores', label: 'Proveedores', icono: 'proveedores', coincidencias: ['proveedores'] })
+    base.push({ name: 'reposiciones', label: 'Reposiciones', icono: 'reposiciones', coincidencias: ['reposiciones'] })
+    base.push({ name: 'informes', label: 'Informes', icono: 'informes', coincidencias: ['informes'] })
   }
 
   return base

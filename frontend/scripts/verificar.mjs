@@ -112,7 +112,17 @@ const SKU_TEST = 'TEST-INTEG'
 // --- Preparar producto de prueba como administrador (idempotente) ---
 let productoTest
 {
-  const { data: existente } = await admin.from('productos').select('id_producto').eq('codigo', SKU_TEST).maybeSingle()
+  let { data: existente } = await admin.from('productos').select('id_producto, activo, stock_actual').eq('codigo', SKU_TEST).maybeSingle()
+  if (existente && existente.activo === false) {
+    // El producto de prueba puede quedar inactivo tras una baja lógica: se reactiva
+    const r = await admin.rpc('activar_producto', { p_id_producto: existente.id_producto })
+    if (r.data?.success) {
+      existente = { ...existente, activo: true }
+      console.log('(info) Se reactivó el producto de prueba TEST-INTEG para correr la verificación.')
+    } else {
+      console.error('(warn) No se pudo reactivar TEST-INTEG:', r.data?.error || r.error)
+    }
+  }
   if (existente) {
     productoTest = existente
   } else {

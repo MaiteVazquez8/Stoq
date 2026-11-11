@@ -12,6 +12,9 @@ import MovementRegister from '@/views/MovementRegister.vue'
 import MovementHistory from '@/views/MovementHistory.vue'
 import InventoryTracking from '@/views/InventoryTracking.vue'
 import CategoryList from '@/views/CategoryList.vue'
+import Proveedores from '@/views/Proveedores.vue'
+import Reposiciones from '@/views/Reposiciones.vue'
+import Informes from '@/views/Informes.vue'
 
 const routes = [
   {
@@ -61,6 +64,24 @@ const routes = [
     name: 'categorias',
     component: CategoryList,
     meta: { seccion: 'Categorías', requiereAdmin: true }
+  },
+  {
+    path: '/proveedores',
+    name: 'proveedores',
+    component: Proveedores,
+    meta: { seccion: 'Proveedores', requiereAdmin: true }
+  },
+  {
+    path: '/reposiciones',
+    name: 'reposiciones',
+    component: Reposiciones,
+    meta: { seccion: 'Reposiciones', requiereAdmin: true }
+  },
+  {
+    path: '/informes',
+    name: 'informes',
+    component: Informes,
+    meta: { seccion: 'Informes', requiereAdmin: true }
   },
   {
     path: '/movimientos',

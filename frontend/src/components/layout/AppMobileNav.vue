@@ -14,17 +14,27 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import Icon from '@/components/common/Icon.vue'
+import { isAdmin } from '@/services/store'
 
 const route = useRoute()
 
-const items = [
-  { name: 'panel', label: 'Panel', icono: 'panel', coincidencias: ['panel'] },
-  { name: 'productos', label: 'Productos', icono: 'productos', coincidencias: ['productos', 'producto-nuevo', 'producto-detalle', 'producto-editar'] },
-  { name: 'movimientos', label: 'Movimientos', icono: 'movimientos', coincidencias: ['movimientos', 'movimiento-registrar'] },
-  { name: 'inventario', label: 'Inventario', icono: 'inventario', coincidencias: ['inventario'] }
-]
+const items = computed(() => {
+  const base = [
+    { name: 'panel', label: 'Panel', icono: 'panel', coincidencias: ['panel'] },
+    { name: 'productos', label: 'Productos', icono: 'productos', coincidencias: ['productos', 'producto-nuevo', 'producto-detalle', 'producto-editar'] },
+    { name: 'movimientos', label: 'Movimientos', icono: 'movimientos', coincidencias: ['movimientos', 'movimiento-registrar'] },
+    { name: 'inventario', label: 'Inventario', icono: 'inventario', coincidencias: ['inventario'] }
+  ]
+
+  if (isAdmin.value) {
+    base.push({ name: 'categorias', label: 'Categorías', icono: 'etiqueta', coincidencias: ['categorias'] })
+  }
+
+  return base
+})
 
 const esActiva = (item) => item.coincidencias.includes(route.name)
 </script>

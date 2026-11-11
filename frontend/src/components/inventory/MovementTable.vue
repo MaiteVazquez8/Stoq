@@ -32,7 +32,7 @@
               <span class="cantidad-movimiento">{{ formatCantidadConSigno(movimiento.tipo_movimiento, movimiento.cantidad) }}</span>
             </div>
           </td>
-          <td class="celda-numero">{{ formatUnidades(movimiento.saldo) }}</td>
+          <td class="celda-numero">{{ formatSaldo(movimiento.saldo_resultante) }}</td>
         </tr>
       </tbody>
     </table>
@@ -45,7 +45,7 @@
         </p>
         <p class="texto-cuerpo">{{ nombreProducto(movimiento) }}</p>
         <p class="texto-meta">
-          {{ formatFechaHoraCorta(movimiento.fecha_hora) }} · Saldo: {{ formatUnidades(movimiento.saldo) }}
+          {{ formatFechaHoraCorta(movimiento.fecha_hora) }} · Saldo: {{ formatSaldo(movimiento.saldo_resultante) }}
         </p>
         <p class="texto-meta">{{ descripcionMovimiento(movimiento) }}</p>
       </li>
@@ -55,8 +55,6 @@
 
 <script setup>
 import Icon from '@/components/common/Icon.vue'
-import { findProduct } from '@/services/store'
-import { getUserDisplayName } from '@/data/users'
 import { useEsMovil } from '@/utils/useEsMovil'
 import { formatCantidadConSigno, formatFechaCorta, formatFechaHoraCorta, formatHora, formatUnidades } from '@/utils/format'
 
@@ -67,12 +65,17 @@ defineProps({
 
 const { esMovil } = useEsMovil()
 
-const nombreProducto = (movimiento) => findProduct(movimiento.id_producto)?.nombre || 'Producto eliminado'
+const nombreProducto = (movimiento) =>
+  movimiento.producto_nombre || 'Producto (sin datos)'
 
 const descripcionMovimiento = (movimiento) => {
   const motivo = movimiento.motivo || 'Movimiento de stock'
-  return `${motivo} · ${getUserDisplayName(movimiento.id_usuario)}`
+  const responsable = movimiento.usuario_nombre || 'Usuario'
+  return `${motivo} · ${responsable}`
 }
+
+const formatSaldo = (saldo) =>
+  saldo === null || saldo === undefined ? '—' : formatUnidades(saldo)
 </script>
 
 <style scoped>

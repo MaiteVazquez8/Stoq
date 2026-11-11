@@ -1,7 +1,8 @@
 // Validaciones de formularios (RN03, RN04, RN05, RN12).
 // Devuelven un objeto de errores por campo; si está vacío, el formulario es válido.
-
-import { getCategoryById } from '@/data/categories'
+// Las validaciones de negocio críticas (stock, permisos) se re-verifican
+// también en la base de datos (constraints + RPC); acá se valida formato y
+// coherencia básica para dar feedback inmediato al usuario.
 
 const PATRON_CODIGO = /^[A-Za-z0-9][A-Za-z0-9-]*$/
 
@@ -26,12 +27,16 @@ export const codigoTieneFormatoValido = (valor) => PATRON_CODIGO.test(String(val
 /**
  * Valida el formulario de producto (alta y edición).
  * @param {object} borrador campos del formulario
- * @param {object} opciones { esEdicion, codigoExistente } donde codigoExistente
- *        indica si otro producto ya usa el código.
+ * @param {object} opciones {
+ *   esEdicion: boolean,
+ *   codigoDuplicado: boolean,
+ *   categorias: Array<{ id_categoria: number }> — lista vigente cargada de Supabase;
+ *               si se omite, solo se valida que haya una selección.
+ * }
  */
 export const validarProducto = (borrador, opciones = {}) => {
   const errores = {}
-  const { esEdicion = false, codigoDuplicado = false } = opciones
+  const { esEdicion = false, codigoDuplicado = false, categorias = null } = opciones
 
   if (!String(borrador.nombre || '').trim()) {
     errores.nombre = 'Ingresá el nombre del producto.'
@@ -50,12 +55,19 @@ export const validarProducto = (borrador, opciones = {}) => {
 
   if (!borrador.id_categoria) {
     errores.id_categoria = 'Elegí una categoría disponible.'
-  } else if (!getCategoryById(borrador.id_categoria)) {
-    errores.id_categoria = 'La categoría seleccionada no existe.'
+  } else if (Array.isArray(categorias)) {
+    const existe = categorias.some(
+      (categoria) => Number(categoria.id_categoria) === Number(borrador.id_categoria)
+    )
+    if (!existe) {
+      errores.id_categoria = 'La categoría seleccionada no existe.'
+    }
   }
 
   if (!borrador.unidad_medida) {
     errores.unidad_medida = 'Elegí la unidad de medida.'
+  } else if (!['Unidad', 'Pack', 'Caja'].includes(borrador.unidad_medida)) {
+    errores.unidad_medida = 'La unidad de medida seleccionada no es válida.'
   }
 
   if (!esPrecioValido(borrador.precio)) {
@@ -83,10 +95,14 @@ export const validarMovimiento = (borrador, producto) => {
     errores.id_producto = 'Elegí el producto del movimiento.'
   } else if (!producto) {
     errores.id_producto = 'El producto seleccionado no existe.'
+  } else if (producto.activo === false) {
+    errores.id_producto = 'El producto está inactivo. Reactivalo para registrar movimientos.'
   }
 
   if (!borrador.tipo_movimiento) {
     errores.tipo_movimiento = 'Elegí si es una entrada o una salida.'
+  } else if (!['Entrada', 'Salida'].includes(borrador.tipo_movimiento)) {
+    errores.tipo_movimiento = 'El tipo de movimiento no es válido.'
   }
 
   if (!esEnteroPositivo(borrador.cantidad)) {

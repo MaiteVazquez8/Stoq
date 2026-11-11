@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { isAuthenticated, isAdmin } from '@/services/store'
+import { isAuthenticated, isAdmin, sessionReady } from '@/services/store'
 
 import Home from '@/views/Home.vue'
 import Login from '@/views/Login.vue'
@@ -11,6 +11,7 @@ import ProductDetail from '@/views/ProductDetail.vue'
 import MovementRegister from '@/views/MovementRegister.vue'
 import MovementHistory from '@/views/MovementHistory.vue'
 import InventoryTracking from '@/views/InventoryTracking.vue'
+import CategoryList from '@/views/CategoryList.vue'
 
 const routes = [
   {
@@ -56,6 +57,12 @@ const routes = [
     meta: { seccion: 'Productos', requiereAdmin: true }
   },
   {
+    path: '/categorias',
+    name: 'categorias',
+    component: CategoryList,
+    meta: { seccion: 'Categorías', requiereAdmin: true }
+  },
+  {
     path: '/movimientos',
     name: 'movimientos',
     component: MovementHistory,
@@ -86,8 +93,10 @@ const router = createRouter({
   scrollBehavior: () => ({ top: 0 })
 })
 
-// Guarda de navegación simulada (RN01). La seguridad real se implementará en el servidor.
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
+  // Esperar a conocer el estado real de la sesión (RN01)
+  await sessionReady
+
   const autenticado = isAuthenticated.value
 
   if (to.meta.publico) {

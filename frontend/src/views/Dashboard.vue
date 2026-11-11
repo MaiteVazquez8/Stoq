@@ -9,111 +9,122 @@
       </template>
     </PageHeader>
 
-    <div class="metricas">
-      <StatCard
-        etiqueta="Productos"
-        :valor="resumen.totalProductos"
-        :contexto="`${resumen.totalCategorias} categorías`"
-      />
-      <StatCard
-        etiqueta="Unidades en stock"
-        :valor="resumen.totalUnidades"
-        :contexto="`${signoNeto} en 7 días`"
-      />
-      <StatCard
-        etiqueta="Con stock bajo"
-        :valor="resumen.stockBajo"
-        contexto="Revisá los mínimos"
-      />
-      <StatCard
-        etiqueta="Agotado"
-        :valor="resumen.agotados"
-        contexto="Necesita reposición"
-      />
-    </div>
+    <LoadingState v-if="cargando" texto="Preparando tu resumen…" />
 
     <Alert
-      v-if="productosAtencion.length"
-      tipo="info"
-      :titulo="`${productosAtencion.length} ${productosAtencion.length === 1 ? 'producto necesita' : 'productos necesitan'} atención`"
-      :mensaje="detalleAtencion"
+      v-else-if="errorCarga"
+      tipo="error"
+      titulo="No pudimos cargar el panel"
+      :mensaje="errorCarga"
     />
 
-    <div class="grilla-dos grilla-dos--amplia">
-      <section class="panel">
-        <div class="panel__cabecera">
-          <h3 class="panel-titulo">Evolución del stock</h3>
-          <p class="grafico__leyenda">
-            <span class="grafico__leyenda-item">
-              <span class="grafico__marca grafico__marca--punto"></span>
-              Existencias · unidades · {{ negocio.periodo }}
-            </span>
-          </p>
-        </div>
-
-        <LineChart
-          :valores="serie.valores"
-          :etiquetas="serie.etiquetas"
-          :altura="220"
-          descripcion="Evolución de las existencias en los últimos 7 días"
+    <template v-else>
+      <div class="metricas">
+        <StatCard
+          etiqueta="Productos"
+          :valor="resumen.totalProductos"
+          :contexto="`${resumen.totalCategorias} categorías`"
         />
-      </section>
-
-      <section class="panel">
-        <div class="panel__cabecera">
-          <h3 class="panel-titulo">Entradas y salidas</h3>
-          <p class="grafico__leyenda">
-            <span class="grafico__leyenda-item">
-              <span class="grafico__marca"></span>
-              Entradas +{{ resumen.entradas }}
-            </span>
-            <span class="grafico__leyenda-item">
-              <span class="grafico__marca grafico__marca--hueca"></span>
-              Salidas –{{ resumen.salidas }} · unidades
-            </span>
-          </p>
-        </div>
-
-        <BarChart
-          :entradas="barras.entradas"
-          :salidas="barras.salidas"
-          :etiquetas="barras.etiquetas"
-          :altura="200"
+        <StatCard
+          etiqueta="Unidades en stock"
+          :valor="resumen.totalUnidades"
+          :contexto="`${signoNeto} en 7 días`"
         />
-
-        <div class="grafico__pie">
-          <p class="grafico__titulo-pie">Día: entrada / salida</p>
-          <p>{{ detalleBarras }}</p>
-        </div>
-      </section>
-    </div>
-
-    <section class="panel">
-      <div class="panel__cabecera">
-        <h3 class="panel-titulo">Últimos movimientos</h3>
+        <StatCard
+          etiqueta="Con stock bajo"
+          :valor="resumen.stockBajo"
+          contexto="Revisá los mínimos"
+        />
+        <StatCard
+          etiqueta="Agotado"
+          :valor="resumen.agotados"
+          contexto="Necesita reposición"
+        />
       </div>
 
-      <MovementTable v-if="movimientos.length" :movimientos="movimientos" compacto />
-
-      <EmptyState
-        v-else
-        icono="movimientos"
-        titulo="Todavía no hay movimientos"
-        texto="Cuando registres una entrada o una salida, la vas a ver acá."
+      <Alert
+        v-if="productosAtencion.length"
+        tipo="info"
+        :titulo="`${productosAtencion.length} ${productosAtencion.length === 1 ? 'producto necesita' : 'productos necesitan'} atención`"
+        :mensaje="detalleAtencion"
       />
 
-      <div class="panel__pie">
-        <RouterLink class="enlace-accion" :to="{ name: 'movimientos' }">
-          Ver todo el historial
-          <Icon nombre="flecha-derecha" :tamano="16" />
-        </RouterLink>
+      <div class="grilla-dos grilla-dos--amplia">
+        <section class="panel">
+          <div class="panel__cabecera">
+            <h3 class="panel-titulo">Evolución del stock</h3>
+            <p class="grafico__leyenda">
+              <span class="grafico__leyenda-item">
+                <span class="grafico__marca grafico__marca--punto"></span>
+                Existencias · unidades · {{ rangoTexto }}
+              </span>
+            </p>
+          </div>
+
+          <LineChart
+            :valores="serie.valores"
+            :etiquetas="serie.etiquetas"
+            :altura="220"
+            descripcion="Evolución de las existencias en los últimos 7 días"
+          />
+        </section>
+
+        <section class="panel">
+          <div class="panel__cabecera">
+            <h3 class="panel-titulo">Entradas y salidas</h3>
+            <p class="grafico__leyenda">
+              <span class="grafico__leyenda-item">
+                <span class="grafico__marca"></span>
+                Entradas +{{ resumen.entradas }}
+              </span>
+              <span class="grafico__leyenda-item">
+                <span class="grafico__marca grafico__marca--hueca"></span>
+                Salidas –{{ resumen.salidas }} · unidades
+              </span>
+            </p>
+          </div>
+
+          <BarChart
+            :entradas="barras.entradas"
+            :salidas="barras.salidas"
+            :etiquetas="barras.etiquetas"
+            :altura="200"
+          />
+
+          <div class="grafico__pie">
+            <p class="grafico__titulo-pie">Día: entrada / salida</p>
+            <p>{{ detalleBarras }}</p>
+          </div>
+        </section>
       </div>
-    </section>
+
+      <section class="panel">
+        <div class="panel__cabecera">
+          <h3 class="panel-titulo">Últimos movimientos</h3>
+        </div>
+
+        <MovementTable v-if="movimientos.length" :movimientos="movimientos" compacto />
+
+        <EmptyState
+          v-else
+          icono="movimientos"
+          titulo="Todavía no hay movimientos"
+          texto="Cuando registres una entrada o una salida, la vas a ver acá."
+        />
+
+        <div class="panel__pie">
+          <RouterLink class="enlace-accion" :to="{ name: 'movimientos' }">
+            Ver todo el historial
+            <Icon nombre="flecha-derecha" :tamano="16" />
+          </RouterLink>
+        </div>
+      </section>
+    </template>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import Alert from '@/components/common/Alert.vue'
 import Button from '@/components/common/Button.vue'
@@ -124,26 +135,66 @@ import BarChart from '@/components/common/BarChart.vue'
 import MovementTable from '@/components/inventory/MovementTable.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StatCard from '@/components/common/StatCard.vue'
+import LoadingState from '@/components/common/LoadingState.vue'
 import { getCurrentUser } from '@/services/store'
 import {
   entradasSalidasPorDia,
   movimientosRecientes,
   productosQueNecesitanAtencion,
   resumenInventario,
-  serieExistencias
+  serieExistencias,
+  etiquetaRango
 } from '@/services/analytics'
 import { negocio } from '@/data/business'
 
 const router = useRouter()
 
-const resumen = computed(() => resumenInventario())
-const serie = computed(() => serieExistencias())
-const barras = computed(() => entradasSalidasPorDia())
-const movimientos = computed(() => movimientosRecientes(5))
-const productosAtencion = computed(() => productosQueNecesitanAtencion())
+const resumen = ref({
+  totalProductos: 0,
+  totalUnidades: 0,
+  totalCategorias: 0,
+  stockBajo: 0,
+  agotados: 0,
+  entradas: 0,
+  salidas: 0,
+  neto: 0
+})
+const serie = ref({ valores: [], etiquetas: [] })
+const barras = ref({ entradas: [], salidas: [], etiquetas: [], detalle: [] })
+const movimientos = ref([])
+const productosAtencion = ref([])
+
+const cargando = ref(true)
+const errorCarga = ref('')
+
+onMounted(async () => {
+  cargando.value = true
+  errorCarga.value = ''
+
+  const [resumenResp, serieResp, barrasResp, movimientosResp, atencion] = await Promise.all([
+    resumenInventario(),
+    serieExistencias(),
+    entradasSalidasPorDia(),
+    movimientosRecientes(5),
+    productosQueNecesitanAtencion()
+  ])
+
+  if (resumenResp.errorProductos || resumenResp.errorMovimientos) {
+    errorCarga.value = 'Revisá tu conexión o volvé a intentarlo. Si el problema sigue, avisá al administrador.'
+  } else {
+    resumen.value = resumenResp
+    serie.value = serieResp
+    barras.value = barrasResp
+    movimientos.value = movimientosResp
+    productosAtencion.value = atencion
+  }
+
+  cargando.value = false
+})
 
 const nombreUsuario = computed(() => getCurrentUser()?.nombre?.split(' ')[0] || 'de nuevo')
 const signoNeto = computed(() => (resumen.value.neto >= 0 ? `+${resumen.value.neto}` : `${resumen.value.neto}`))
+const rangoTexto = computed(() => etiquetaRango())
 
 const detalleAtencion = computed(() => {
   const { stockBajo, agotados } = resumen.value
@@ -154,7 +205,7 @@ const detalleAtencion = computed(() => {
 })
 
 const detalleBarras = computed(() =>
-  barras.value.detalle
+  (barras.value.detalle || [])
     .map(item => `${item.dia}: ${item.entrada}/${item.salida}`)
     .join(' · ')
 )

@@ -1,222 +1,281 @@
-// Estado reactivo simulado de Stoq.
-// Desacopla las vistas de los datos: las vistas consumen estas funciones y,
-// cuando Supabase esté disponible, sólo se reemplaza la implementación.
+// ============================================================================
+// Stoq · Store principal (autenticación + datos compartidos + tema)
+// ============================================================================
+// Mantiene en memoria reactiva la sesión y los catálogos compartidos
+// (productos y categorías), de modo que todas las vistas se actualicen
+// automáticamente después de cada operación sobre Supabase.
+//
+// Las operaciones CRUD viven en los servicios (services/products.js,
+// services/categories.js, services/movements.js); este módulo las expone
+// con control de permisos del lado del cliente. La seguridad real está en
+// Supabase (RLS + funciones RPC), no en estos chequeos.
+// ============================================================================
 
 import { ref, computed } from 'vue'
-import { ROLES } from '@/data/roles'
-import { getUserByEmail, users } from '@/data/users'
-import { categories } from '@/data/categories'
-import { products } from '@/data/products'
-import { movements } from '@/data/movements'
-import { negocio } from '@/data/business'
-import { getMotivoOptions } from '@/data/movementMotives'
+import { supabase } from './supabase'
+import {
+  iniciarSesion as authIniciarSesion,
+  cerrarSesion as authCerrarSesion,
+  normalizarPerfil,
+  obtenerPerfilPorAuthId
+} from './auth'
+import * as productService from './products'
+import * as categoryService from './categories'
+import * as movementService from './movements'
 
-// --- Sesión simulada (RN01) ---
+const ROLES = {
+  ADMIN: 1,
+  OPERADOR: 2
+}
+
+const MOTIVOS_ENTRADA = [
+  'Entrada de proveedor',
+  'Producción terminada',
+  'Devolución de cliente',
+  'Ajuste de inventario'
+]
+
+const MOTIVOS_SALIDA = [
+  'Entrega de pedidos',
+  'Venta en local',
+  'Producción intermedia',
+  'Ajuste de inventario'
+]
+
+// ----------------------------------------------------------------------------
+// Sesión (sincronizada con Supabase Auth)
+// ----------------------------------------------------------------------------
 const currentUser = ref(null)
+const sessionLoading = ref(true)
+
+let resolverSesionInicial
+export const sessionReady = new Promise((resolve) => {
+  resolverSesionInicial = resolve
+})
+
+const aplicarSesion = async (sesion) => {
+  try {
+    if (sesion?.user) {
+      const { data: perfil } = await obtenerPerfilPorAuthId(sesion.user.id)
+      currentUser.value = perfil
+        ? normalizarPerfil(perfil, sesion.user.email)
+        : { id: sesion.user.id, email: sesion.user.email, nombre: sesion.user.email, id_rol: 2, estado: 'activo' }
+    } else {
+      currentUser.value = null
+    }
+  } catch (error) {
+    console.error('[Stoq] No se pudo resolver el perfil de la sesión:', error)
+    currentUser.value = sesion?.user
+      ? { id: sesion.user.id, email: sesion.user.email, nombre: sesion.user.email, id_rol: 2, estado: 'activo' }
+      : null
+  } finally {
+    sessionLoading.value = false
+    resolverSesionInicial()
+  }
+}
+
+supabase.auth.onAuthStateChange((_evento, sesion) => {
+  aplicarSesion(sesion)
+})
+
+// Fallback: si el evento inicial no llegara (red caída al arrancar),
+// evitamos que las guardas de navegación queden esperando para siempre.
+setTimeout(() => {
+  if (sessionLoading.value) {
+    sessionLoading.value = false
+    resolverSesionInicial()
+  }
+}, 5000)
 
 export const isAuthenticated = computed(() => currentUser.value !== null)
 export const isAdmin = computed(() => currentUser.value?.id_rol === ROLES.ADMIN)
 export const isOperador = computed(() => currentUser.value?.id_rol === ROLES.OPERADOR)
 
 export const getCurrentUser = () => currentUser.value
+
 export const getUserRoleName = () => {
   if (!currentUser.value) return ''
   return currentUser.value.id_rol === ROLES.ADMIN ? 'Administrador' : 'Operador'
 }
 
-export const login = (email, password) => {
-  const usuario = getUserByEmail(email)
-
-  if (!usuario) {
-    return {
-      success: false,
-      error: `No encontramos una cuenta con ese correo. Probá con ${users
-        .map(u => u.email)
-        .join(' o ')}.`
-    }
+export const login = async (email, password) => {
+  const resultado = await authIniciarSesion({ email, password })
+  if (resultado.success && resultado.user) {
+    currentUser.value = resultado.user
   }
-
-  if (String(password || '').trim().length < 4) {
-    return { success: false, error: 'Ingresá tu contraseña (mínimo 4 caracteres).' }
-  }
-
-  if (usuario.estado !== 'activo') {
-    return { success: false, error: 'La cuenta está inactiva. Contactá al administrador.' }
-  }
-
-  currentUser.value = usuario
-  return { success: true, user: usuario }
+  return resultado
 }
 
-export const logout = () => {
+export const logout = async () => {
+  const resultado = await authCerrarSesion()
   currentUser.value = null
+  return resultado
 }
 
-// --- Tema ---
-const isDarkMode = ref(false)
-export const getTheme = () => isDarkMode.value
+export const getMovementMotives = (tipo) =>
+  tipo === 'Entrada' ? MOTIVOS_ENTRADA : MOTIVOS_SALIDA
+
+// ----------------------------------------------------------------------------
+// Tema claro/oscuro (persistido en localStorage)
+// ----------------------------------------------------------------------------
+const CLAVE_TEMA = 'stoq-tema-oscuro'
+const temaInicial =
+  typeof window !== 'undefined' && window.localStorage?.getItem(CLAVE_TEMA) === '1'
+
+const isDarkMode = ref(temaInicial)
+
+if (typeof document !== 'undefined') {
+  document.body.classList.toggle('dark', isDarkMode.value)
+}
+
 export const isDarkTheme = computed(() => isDarkMode.value)
 
 export const toggleTheme = () => {
   isDarkMode.value = !isDarkMode.value
+  if (typeof window !== 'undefined') {
+    window.localStorage?.setItem(CLAVE_TEMA, isDarkMode.value ? '1' : '0')
+  }
   if (typeof document !== 'undefined') {
     document.body.classList.toggle('dark', isDarkMode.value)
   }
   return isDarkMode.value
 }
 
-// --- Datos reactivos (copia de trabajo, nunca se mutan los archivos de datos) ---
-const productsState = ref(products.map(p => ({ ...p })))
-const movementsState = ref(movements.map(m => ({ ...m })))
-const categoriesState = ref(categories.map(c => ({ ...c })))
+// ----------------------------------------------------------------------------
+// Datos compartidos: productos y categorías
+// ----------------------------------------------------------------------------
+const productos = ref([])
+const categorias = ref([])
+const cargandoProductos = ref(false)
+const cargandoCategorias = ref(false)
 
-export const getProducts = () => productsState.value
-export const getMovements = () => movementsState.value
-export const getCategories = () => categoriesState.value
+export const productosCompartidos = computed(() => productos.value)
+export const categoriasCompartidas = computed(() => categorias.value)
+export const getProductosActivos = computed(() => productos.value.filter((p) => p.activo))
 
-export const findProduct = (idProducto) =>
-  productsState.value.find(p => p.id_producto === Number(idProducto))
-
-export const findProductByCode = (codigo, exceptoId = null) => {
-  const normalizado = String(codigo || '').trim().toLowerCase()
-  return productsState.value.find(
-    p => p.codigo.toLowerCase() === normalizado && p.id_producto !== Number(exceptoId)
-  )
+export const cargarProductos = async () => {
+  cargandoProductos.value = true
+  const resultado = await productService.getProducts()
+  if (!resultado.error) {
+    productos.value = resultado.data ?? []
+  }
+  cargandoProductos.value = false
+  return resultado
 }
 
-export const getMovementMotives = (tipo) => getMotivoOptions(tipo)
+export const cargarCategorias = async () => {
+  cargandoCategorias.value = true
+  const resultado = await categoryService.getCategories()
+  if (!resultado.error) {
+    categorias.value = resultado.data ?? []
+  }
+  cargandoCategorias.value = false
+  return resultado
+}
 
-// --- Productos (RN02, RN03, RN09) ---
-export const createProduct = (datos) => {
+// --- Productos ---
+export const findProduct = async (idProducto) => {
+  const resultado = await productService.getProductById(Number(idProducto))
+  return resultado.data ?? null
+}
+
+export const findProductByCode = async (codigo, exceptoId = null) => {
+  const resultado = await productService.getProductByCode(codigo)
+  if (!resultado.data) return null
+  if (exceptoId !== null && resultado.data.id_producto === Number(exceptoId)) return null
+  return resultado.data
+}
+
+export const createProduct = async (datos) => {
   if (!isAdmin.value) {
     return { success: false, error: 'Tu perfil no tiene permiso para registrar productos.' }
   }
-
-  if (findProductByCode(datos.codigo)) {
-    return { success: false, error: 'Este SKU ya existe. Usá un código único.', campo: 'codigo' }
-  }
-
-  const nuevoId = productsState.value.reduce((max, p) => Math.max(max, p.id_producto), 0) + 1
-
-  const producto = {
-    id_producto: nuevoId,
-    codigo: String(datos.codigo).trim().toUpperCase(),
-    nombre: String(datos.nombre).trim(),
-    descripcion: String(datos.descripcion || '').trim(),
-    id_categoria: Number(datos.id_categoria),
-    unidad_medida: datos.unidad_medida,
-    precio: Number(datos.precio),
-    stock_actual: Number(datos.cantidad_inicial),
-    stock_minimo: Number(datos.stock_minimo),
-    fecha_creacion: negocio.hoy.slice(0, 10)
-  }
-
-  productsState.value = [...productsState.value, producto]
-  return { success: true, product: producto }
+  const resultado = await productService.createProduct(datos)
+  if (resultado.success) await cargarProductos()
+  return resultado
 }
 
-export const updateProduct = (idProducto, cambios) => {
+export const updateProduct = async (idProducto, cambios) => {
   if (!isAdmin.value) {
     return { success: false, error: 'Tu perfil no tiene permiso para modificar productos.' }
   }
-
-  const indice = productsState.value.findIndex(p => p.id_producto === Number(idProducto))
-  if (indice === -1) {
-    return { success: false, error: 'El producto no existe.' }
-  }
-
-  if (findProductByCode(cambios.codigo, idProducto)) {
-    return { success: false, error: 'Este SKU ya existe. Usá un código único.', campo: 'codigo' }
-  }
-
-  const actual = productsState.value[indice]
-  const actualizado = {
-    ...actual,
-    codigo: String(cambios.codigo).trim().toUpperCase(),
-    nombre: String(cambios.nombre).trim(),
-    descripcion: String(cambios.descripcion || '').trim(),
-    id_categoria: Number(cambios.id_categoria),
-    unidad_medida: cambios.unidad_medida,
-    precio: Number(cambios.precio),
-    stock_minimo: Number(cambios.stock_minimo)
-    // stock_actual no se modifica por edición: cambia con entradas y salidas (RN07).
-  }
-
-  const copia = [...productsState.value]
-  copia[indice] = actualizado
-  productsState.value = copia
-
-  return { success: true, product: actualizado }
+  const resultado = await productService.updateProduct(idProducto, cambios)
+  if (resultado.success) await cargarProductos()
+  return resultado
 }
 
-// --- Movimientos de stock (RN04, RN05, RN06, RN07, RN08, RN10) ---
-const minutosRelojDemo = ref(0)
-
-const siguienteFechaHora = () => {
-  const base = new Date(`${negocio.hoy.replace(' ', 'T')}:00`)
-  base.setMinutes(base.getMinutes() + minutosRelojDemo.value)
-  minutosRelojDemo.value += 1
-
-  const dia = String(base.getDate()).padStart(2, '0')
-  const mes = String(base.getMonth() + 1).padStart(2, '0')
-  const hora = String(base.getHours()).padStart(2, '0')
-  const minuto = String(base.getMinutes()).padStart(2, '0')
-  return `${base.getFullYear()}-${mes}-${dia} ${hora}:${minuto}`
+export const desactivarProducto = async (idProducto) => {
+  if (!isAdmin.value) {
+    return { success: false, error: 'Tu perfil no tiene permiso para desactivar productos.' }
+  }
+  const resultado = await productService.desactivarProducto(idProducto)
+  if (resultado.success) await cargarProductos()
+  return resultado
 }
 
-export const registrarMovimiento = (datos) => {
+export const activarProducto = async (idProducto) => {
+  if (!isAdmin.value) {
+    return { success: false, error: 'Tu perfil no tiene permiso para reactivar productos.' }
+  }
+  const resultado = await productService.activarProducto(idProducto)
+  if (resultado.success) await cargarProductos()
+  return resultado
+}
+
+// --- Categorías ---
+export const createCategory = async (datos) => {
+  if (!isAdmin.value) {
+    return { success: false, error: 'Tu perfil no tiene permiso para crear categorías.' }
+  }
+  const resultado = await categoryService.createCategory(datos)
+  if (resultado.success) await cargarCategorias()
+  return resultado
+}
+
+export const updateCategory = async (idCategoria, cambios) => {
+  if (!isAdmin.value) {
+    return { success: false, error: 'Tu perfil no tiene permiso para modificar categorías.' }
+  }
+  const resultado = await categoryService.updateCategory(idCategoria, cambios)
+  if (resultado.success) await cargarCategorias()
+  return resultado
+}
+
+export const desactivarCategoria = async (idCategoria) => {
+  if (!isAdmin.value) {
+    return { success: false, error: 'Tu perfil no tiene permiso para desactivar categorías.' }
+  }
+  const resultado = await categoryService.desactivarCategoria(idCategoria)
+  if (resultado.success) await cargarCategorias()
+  return resultado
+}
+
+export const activarCategoria = async (idCategoria) => {
+  if (!isAdmin.value) {
+    return { success: false, error: 'Tu perfil no tiene permiso para reactivar categorías.' }
+  }
+  const resultado = await categoryService.activarCategoria(idCategoria)
+  if (resultado.success) await cargarCategorias()
+  return resultado
+}
+
+export const eliminarCategoria = async (idCategoria) => {
+  if (!isAdmin.value) {
+    return { success: false, error: 'Tu perfil no tiene permiso para eliminar categorías.' }
+  }
+  const resultado = await categoryService.eliminarCategoria(idCategoria)
+  if (resultado.success) await cargarCategorias()
+  return resultado
+}
+
+// --- Movimientos ---
+export const registrarMovimiento = async (datos) => {
   if (!isAdmin.value && !isOperador.value) {
     return { success: false, error: 'Necesitás una sesión activa para registrar movimientos.' }
   }
 
-  const producto = findProduct(datos.id_producto)
-  if (!producto) {
-    return { success: false, error: 'El producto seleccionado no existe.', campo: 'id_producto' }
-  }
-
-  const cantidad = Number(datos.cantidad)
-  if (!Number.isInteger(cantidad) || cantidad <= 0) {
-    return { success: false, error: 'Ingresá una cantidad entera mayor a 0.', campo: 'cantidad' }
-  }
-
-  const tipo = datos.tipo_movimiento
-  if (tipo !== 'Entrada' && tipo !== 'Salida') {
-    return { success: false, error: 'Elegí si el movimiento es una entrada o una salida.', campo: 'tipo_movimiento' }
-  }
-
-  if (tipo === 'Salida' && cantidad > producto.stock_actual) {
-    return {
-      success: false,
-      error: `La cantidad supera el stock disponible. Tenés ${producto.stock_actual} unidades. Ingresá una cantidad entre 1 y ${producto.stock_actual} para registrar la salida.`,
-      campo: 'cantidad'
-    }
-  }
-
-  if (!datos.motivo) {
-    return { success: false, error: 'Elegí el motivo del movimiento.', campo: 'motivo' }
-  }
-
-  const stockAnterior = producto.stock_actual
-  const stockNuevo = tipo === 'Entrada' ? stockAnterior + cantidad : stockAnterior - cantidad
-
-  const movimiento = {
-    id_movimiento: movementsState.value.reduce((max, m) => Math.max(max, m.id_movimiento), 0) + 1,
-    id_producto: producto.id_producto,
-    id_usuario: currentUser.value.id_usuario,
-    tipo_movimiento: tipo,
-    cantidad,
-    fecha_hora: siguienteFechaHora(),
-    motivo: datos.motivo,
-    observacion: String(datos.observacion || '').trim()
-  }
-
-  // RN08: el stock y el movimiento se actualizan como una única operación lógica.
-  const productosActualizados = productsState.value.map(p =>
-    p.id_producto === producto.id_producto ? { ...p, stock_actual: stockNuevo } : p
-  )
-
-  productsState.value = productosActualizados
-  movementsState.value = [...movementsState.value, movimiento]
-
-  return { success: true, movement: movimiento, stockAnterior, stockNuevo }
+  const resultado = await movementService.registrarMovimiento(datos)
+  // El stock del catálogo cambió: refrescar productos compartidos
+  if (resultado.success) await cargarProductos()
+  return resultado
 }

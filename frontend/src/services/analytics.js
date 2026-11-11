@@ -1,11 +1,38 @@
-// Cálculos derivados del inventario. Las vistas no guardan copias de los datos:
-// todo se calcula a partir del estado reactivo del store.
+// ============================================================================
+// Stoq · Cálculos derivados del inventario (Supabase)
+// ============================================================================
+// Funciones async de consulta y cálculo. El período de análisis es dinámico
+// (últimos 7 días corridos hasta hoy); ya no depende de fechas fijas de demo.
+// La vista vw_movimientos_detalle ya entrega saldo_resultante y datos
+// relacionados, por lo que no se hacen joins desde el cliente.
+// ============================================================================
 
-import { getProducts, getMovements, findProduct } from '@/services/store'
-import { getCategoryName } from '@/data/categories'
-import { negocio } from '@/data/business'
+import * as productService from '@/services/products'
+import * as movementService from '@/services/movements'
 
-// --- Estado de stock (RN11) ---
+const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+
+// Instante de un movimiento (timestamptz devuelto por PostgREST)
+const instanteDe = (fechaHora) => new Date(String(fechaHora).replace(' ', 'T'))
+
+const inicioDeDia = (d) => {
+  const f = new Date(d)
+  f.setHours(0, 0, 0, 0)
+  return f
+}
+
+const finDeDia = (d) => {
+  const f = new Date(d)
+  f.setHours(23, 59, 59, 999)
+  return f
+}
+
+const enRangoFechas = (fechaHora, desdeDia, hastaDia) => {
+  const t = instanteDe(fechaHora).getTime()
+  return t >= inicioDeDia(desdeDia).getTime() && t <= finDeDia(hastaDia).getTime()
+}
+
+// --- Estado de stock (RN11): se señala cuando el stock es MENOR al mínimo ---
 export const estadoStock = (producto) => {
   if (!producto) return 'suficiente'
   if (producto.stock_actual <= 0) return 'agotado'
@@ -13,127 +40,100 @@ export const estadoStock = (producto) => {
   return 'suficiente'
 }
 
-export const etiquetaEstado = (estado) => {
-  if (estado === 'agotado') return 'Agotado'
-  if (estado === 'bajo') return 'Stock bajo'
-  return 'Suficiente'
+
+
+const aISO = (fecha) => {
+  const d = new Date(fecha)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-const firma = (movimiento) => `${movimiento.fecha_hora}-${String(movimiento.id_movimiento).padStart(4, '0')}`
-
-const ordenarAscendente = (movimientos) =>
-  [...movimientos].sort((a, b) => firma(a).localeCompare(firma(b)))
-
-const ordenarDescendente = (movimientos) =>
-  [...movimientos].sort((a, b) => firma(b).localeCompare(firma(a)))
-
-const cantidadFirmada = (movimiento) =>
-  movimiento.tipo_movimiento === 'Entrada' ? movimiento.cantidad : -movimiento.cantidad
-
-/**
- * Agrega el saldo resultante a cada movimiento (stock después de la operación).
- * Se calcula hacia atrás desde el stock actual, sin almacenar el saldo.
- */
-export const conSaldo = (movimientos) => {
-  const saldos = new Map()
-
-  getProducts().forEach(producto => {
-    const delProducto = ordenarAscendente(
-      getMovements().filter(m => m.id_producto === producto.id_producto)
-    )
-    let saldo = producto.stock_actual
-    for (let i = delProducto.length - 1; i >= 0; i -= 1) {
-      saldos.set(delProducto[i].id_movimiento, saldo)
-      saldo -= cantidadFirmada(delProducto[i])
-    }
-  })
-
-  return movimientos.map(m => ({ ...m, saldo: saldos.get(m.id_movimiento) ?? null }))
-}
-
-// --- Rangos de fecha del período de demostración (21-27 oct 2026) ---
+// --- Rango de los últimos 7 días corridos (dinámico) ---
 export const rangoPeriodo = () => {
-  const hasta = new Date(`${negocio.hoy.replace(' ', 'T')}:00`)
-  const desde = new Date(hasta)
+  const hoy = new Date()
+  const desde = new Date(hoy)
   desde.setDate(desde.getDate() - 6)
-  const aTexto = (f) => {
-    const mes = String(f.getMonth() + 1).padStart(2, '0')
-    const dia = String(f.getDate()).padStart(2, '0')
-    return `${f.getFullYear()}-${mes}-${dia}`
-  }
-  return { desde: aTexto(desde), hasta: aTexto(hasta) }
+  return { desde: aISO(desde), hasta: aISO(hoy) }
 }
 
 export const diasDelPeriodo = () => {
-  const { desde, hasta } = rangoPeriodo()
+  const { desde } = rangoPeriodo()
   const inicio = new Date(`${desde}T00:00`)
-  const fin = new Date(`${hasta}T00:00`)
   const dias = []
-  const actual = new Date(inicio)
-  while (actual <= fin) {
-    dias.push(new Date(actual))
-    actual.setDate(actual.getDate() + 1)
+  for (let i = 0; i < 7; i += 1) {
+    const d = new Date(inicio)
+    d.setDate(inicio.getDate() + i)
+    dias.push(d)
   }
   return dias
 }
 
-const enRango = (fechaHora, desde, hasta) => {
-  const dia = String(fechaHora).slice(0, 10)
-  return dia >= desde && dia <= hasta
-}
-
-export const movimientosDelPeriodo = () => {
-  const { desde, hasta } = rangoPeriodo()
-  return getMovements().filter(m => enRango(m.fecha_hora, desde, hasta))
+export const etiquetaRango = () => {
+  const dias = diasDelPeriodo()
+  const primero = dias[0]
+  const ultimo = dias[dias.length - 1]
+  const mes = MESES[ultimo.getMonth()]
+  const mismoMes = primero.getMonth() === ultimo.getMonth()
+  return mismoMes
+    ? `${primero.getDate()}–${ultimo.getDate()} ${mes} ${ultimo.getFullYear()}`
+    : `${primero.getDate()} ${MESES[primero.getMonth()]} – ${ultimo.getDate()} ${mes} ${ultimo.getFullYear()}`
 }
 
 // --- Resumen del inventario ---
-export const resumenInventario = () => {
-  const productos = getProducts()
-  const delPeriodo = movimientosDelPeriodo()
+export const resumenInventario = async () => {
+  const { data: productos, error: errorProductos } = await productService.getProductsActivos()
+  const { desde, hasta } = rangoPeriodo()
+  const { data: movimientos, error: errorMovimientos } = await movementService.filtrarHistorial({
+    desde,
+    hasta,
+    orden: 'desc',
+    limite: 1000
+  })
+
+  const lista = productos ?? []
+  const movs = movimientos ?? []
+  const delPeriodo = movs.filter((m) => enRangoFechas(m.fecha_hora, desde, hasta))
 
   const entradas = delPeriodo
-    .filter(m => m.tipo_movimiento === 'Entrada')
-    .reduce((total, m) => total + m.cantidad, 0)
+    .filter((m) => m.tipo_movimiento === 'Entrada')
+    .reduce((total, m) => total + Number(m.cantidad), 0)
   const salidas = delPeriodo
-    .filter(m => m.tipo_movimiento === 'Salida')
-    .reduce((total, m) => total + m.cantidad, 0)
-
-  const categoriasConStock = new Set(productos.map(p => p.id_categoria)).size
+    .filter((m) => m.tipo_movimiento === 'Salida')
+    .reduce((total, m) => total + Number(m.cantidad), 0)
 
   return {
-    totalProductos: productos.length,
-    totalUnidades: productos.reduce((total, p) => total + p.stock_actual, 0),
-    totalCategorias: categoriasConStock,
-    stockBajo: productos.filter(p => estadoStock(p) === 'bajo').length,
-    agotados: productos.filter(p => estadoStock(p) === 'agotado').length,
+    totalProductos: lista.length,
+    totalUnidades: lista.reduce((total, p) => total + Number(p.stock_actual || 0), 0),
+    totalCategorias: new Set(lista.map((p) => p.id_categoria)).size,
+    stockBajo: lista.filter((p) => estadoStock(p) === 'bajo').length,
+    agotados: lista.filter((p) => estadoStock(p) === 'agotado').length,
     entradas,
     salidas,
-    neto: entradas - salidas
+    neto: entradas - salidas,
+    errorProductos,
+    errorMovimientos
   }
 }
 
-export const existenciasPorCategoria = () => {
-  const productos = getProducts()
+// --- Existencias por categoría ---
+export const existenciasPorCategoria = async () => {
+  const { data: productos } = await productService.getProductsActivos()
   const mapa = new Map()
 
-  productos.forEach(producto => {
-    const actual = mapa.get(producto.id_categoria) || 0
-    mapa.set(producto.id_categoria, actual + producto.stock_actual)
+  ;(productos ?? []).forEach((producto) => {
+    const clave = producto.id_categoria
+    const actual = mapa.get(clave) || { id_categoria: clave, nombre: producto.categoria_nombre || 'Sin categoría', unidades: 0 }
+    actual.unidades += Number(producto.stock_actual || 0)
+    mapa.set(clave, actual)
   })
 
-  return [...mapa.entries()]
-    .map(([idCategoria, unidades]) => ({
-      id_categoria: idCategoria,
-      nombre: getCategoryName(idCategoria),
-      unidades
-    }))
-    .sort((a, b) => b.unidades - a.unidades)
+  return [...mapa.values()].sort((a, b) => b.unidades - a.unidades)
 }
 
-export const productosQueNecesitanAtencion = () =>
-  getProducts()
-    .map(producto => ({ producto, estado: estadoStock(producto) }))
+// --- Productos por debajo del mínimo o agotados (RN11) ---
+export const productosQueNecesitanAtencion = async () => {
+  const { data: productos } = await productService.getProductsActivos()
+  return (productos ?? [])
+    .map((producto) => ({ producto, estado: estadoStock(producto) }))
     .filter(({ estado }) => estado !== 'suficiente')
     .map(({ producto, estado }) => ({
       producto,
@@ -141,57 +141,56 @@ export const productosQueNecesitanAtencion = () =>
       faltante: Math.max(producto.stock_minimo - producto.stock_actual, 0)
     }))
     .sort((a, b) => b.faltante - a.faltante)
+}
 
-// --- Series para los gráficos ---
-export const serieExistencias = (idProducto = null) => {
-  const productos = idProducto
-    ? [findProduct(idProducto)].filter(Boolean)
-    : getProducts()
+// --- Series diarias de los últimos 7 días ---
+export const serieExistencias = async (idProducto = null) => {
+  const { data: productosData } = idProducto
+    ? await productService.getProductById(idProducto).then(({ data }) => ({ data: data ? [data] : [] }))
+    : await productService.getProductsActivos()
+
+  const productos = productosData ?? []
   const dias = diasDelPeriodo()
-  const movimientos = idProducto
-    ? getMovements().filter(m => m.id_producto === Number(idProducto))
-    : getMovements()
+  const { data: movimientosData } = idProducto
+    ? await movementService.getMovementsByProduct(idProducto)
+    : await movementService.getMovements({ limite: 1000 })
 
-  const totalActual = productos.reduce((total, p) => total + p.stock_actual, 0)
+  const movimientos = movimientosData ?? []
+  const totalActual = productos.reduce((total, p) => total + Number(p.stock_actual || 0), 0)
 
-  const valores = dias.map(dia => {
-    const cierre = new Date(dia)
-    cierre.setHours(23, 59, 59, 999)
+  const valores = dias.map((dia) => {
+    const cierre = finDeDia(dia)
     const posteriores = movimientos
-      .filter(m => new Date(`${m.fecha_hora.replace(' ', 'T')}:00`) > cierre)
-      .reduce((total, m) => total + cantidadFirmada(m), 0)
+      .filter((m) => instanteDe(m.fecha_hora) > cierre)
+      .reduce((total, m) => total + (m.tipo_movimiento === 'Entrada' ? Number(m.cantidad) : -Number(m.cantidad)), 0)
     return totalActual - posteriores
   })
 
   return {
-    etiquetas: dias.map(dia => `${dia.getDate()} ${['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'][dia.getMonth()]}`),
+    etiquetas: dias.map((dia) => `${dia.getDate()} ${MESES[dia.getMonth()]}`),
     valores,
     desde: dias[0],
     hasta: dias[dias.length - 1]
   }
 }
 
-export const entradasSalidasPorDia = () => {
+export const entradasSalidasPorDia = async () => {
   const dias = diasDelPeriodo()
-  const movimientos = movimientosDelPeriodo()
+  const { desde, hasta } = rangoPeriodo()
+  const { data: movimientosData } = await movementService.filtrarHistorial({ desde, hasta, orden: 'asc', limite: 1000 })
+  const delPeriodo = movimientosData ?? []
 
-  const entradas = dias.map(dia => {
-    const clave = String(dia.getDate()).padStart(2, '0')
-    return movimientos
-      .filter(m => m.tipo_movimiento === 'Entrada' && m.fecha_hora.slice(8, 10) === clave)
-      .reduce((total, m) => total + m.cantidad, 0)
-  })
+  const porDia = (dia, tipo) =>
+    delPeriodo
+      .filter((m) => m.tipo_movimiento === tipo && enRangoFechas(m.fecha_hora, dia, dia))
+      .reduce((total, m) => total + Number(m.cantidad), 0)
 
-  const salidas = dias.map(dia => {
-    const clave = String(dia.getDate()).padStart(2, '0')
-    return movimientos
-      .filter(m => m.tipo_movimiento === 'Salida' && m.fecha_hora.slice(8, 10) === clave)
-      .reduce((total, m) => total + m.cantidad, 0)
-  })
+  const entradas = dias.map((dia) => porDia(dia, 'Entrada'))
+  const salidas = dias.map((dia) => porDia(dia, 'Salida'))
 
   return {
     dias,
-    etiquetas: dias.map(dia => String(dia.getDate())),
+    etiquetas: dias.map((dia) => String(dia.getDate())),
     entradas,
     salidas,
     detalle: dias.map((dia, indice) => ({
@@ -202,53 +201,17 @@ export const entradasSalidasPorDia = () => {
   }
 }
 
-// --- Historial ---
-export const historialConSaldo = () => conSaldo(ordenarDescendente(getMovements()))
-
-export const movimientosRecientes = (limite = 5) => historialConSaldo().slice(0, limite)
-
-export const movimientosDeProducto = (idProducto) =>
-  conSaldo(
-    ordenarDescendente(getMovements().filter(m => m.id_producto === Number(idProducto)))
-  )
-
-export const filtrarHistorial = ({ busqueda = '', tipo = 'todos', desde = null, hasta = null } = {}) => {
-  let resultado = historialConSaldo()
-
-  const texto = busqueda.trim().toLowerCase()
-  if (texto) {
-    resultado = resultado.filter(m => {
-      const producto = findProduct(m.id_producto)
-      const nombre = producto ? producto.nombre.toLowerCase() : ''
-      const codigo = producto ? producto.codigo.toLowerCase() : ''
-      const motivo = String(m.motivo || '').toLowerCase()
-      const observacion = String(m.observacion || '').toLowerCase()
-      return (
-        nombre.includes(texto) ||
-        codigo.includes(texto) ||
-        motivo.includes(texto) ||
-        observacion.includes(texto)
-      )
-    })
-  }
-
-  if (tipo !== 'todos') {
-    resultado = resultado.filter(m => m.tipo_movimiento === tipo)
-  }
-
-  if (desde && hasta) {
-    resultado = resultado.filter(m => enRango(m.fecha_hora, desde, hasta))
-  }
-
-  return resultado
+// --- Movimientos recientes ---
+export const movimientosRecientes = async (limite = 5) => {
+  const { data } = await movementService.getMovements({ limite })
+  return data ?? []
 }
 
-export const totalesDe = (movimientos) => {
-  const entradas = movimientos
-    .filter(m => m.tipo_movimiento === 'Entrada')
-    .reduce((total, m) => total + m.cantidad, 0)
-  const salidas = movimientos
-    .filter(m => m.tipo_movimiento === 'Salida')
-    .reduce((total, m) => total + m.cantidad, 0)
-  return { entradas, salidas, neto: entradas - salidas }
+// --- Movimientos de un producto ---
+export const movimientosDeProducto = async (idProducto) => {
+  const { data } = await movementService.getMovementsByProduct(idProducto)
+  return data ?? []
 }
+
+// --- Totales de un conjunto de movimientos ---
+export const totalesDe = (movimientos) => movementService.calcularTotales(movimientos)

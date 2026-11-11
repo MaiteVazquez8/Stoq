@@ -1,6 +1,6 @@
 <template>
   <footer class="pie-app">
-    {{ negocio.nombre }} · Datos de demostración · {{ negocio.hoyTexto }}
+    {{ negocio.nombre }} · {{ negocio.etiqueta }}
   </footer>
 </template>
 

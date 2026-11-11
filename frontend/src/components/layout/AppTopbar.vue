@@ -55,9 +55,9 @@ const seccion = computed(() => route.meta.seccion || 'Panel')
 
 const cambiarTema = () => toggleTheme()
 
-const cerrarSesion = () => {
+const cerrarSesion = async () => {
   menuAbierto.value = false
-  logout()
+  await logout()
   router.push({ name: 'ingresar' })
 }
 

@@ -19,7 +19,7 @@
           <Icon nombre="flecha-arriba" :tamano="16" />
           Salidas –{{ formatUnidades(totales.salidas) }}
         </span>
-        <span class="resumen__neto">Neto +{{ formatUnidades(totales.neto) }}</span>
+        <span class="resumen__neto">Neto {{ signoNeto }}{{ formatUnidades(Math.abs(totales.neto)) }}</span>
       </p>
     </section>
 
@@ -28,7 +28,7 @@
         v-model="busqueda"
         etiqueta="Buscar"
         nombre="buscar-movimiento"
-        placeholder="Producto o motivo…"
+        placeholder="Producto, motivo o responsable…"
       />
 
       <Input
@@ -46,20 +46,62 @@
         tipo="select"
         :opciones="opcionesPeriodo"
       />
+
+      <template v-if="periodo === 'personalizado'">
+        <Input
+          v-model="desde"
+          etiqueta="Desde"
+          nombre="filtrar-desde"
+          type="date"
+          :error="errorFechas"
+        />
+
+        <Input
+          v-model="hasta"
+          etiqueta="Hasta"
+          nombre="filtrar-hasta"
+          type="date"
+        />
+      </template>
+
+      <Input
+        v-model="responsable"
+        etiqueta="Responsable"
+        nombre="filtrar-responsable"
+        tipo="select"
+        :opciones="opcionesResponsables"
+      />
+
+      <Input
+        v-model="orden"
+        etiqueta="Orden"
+        nombre="ordenar-movimientos"
+        tipo="select"
+        :opciones="OPCIONES_ORDEN"
+      />
     </div>
 
+    <p v-if="productoId" class="fila fila--separada texto-secundario">
+      <span>Filtrado por producto · {{ nombreProductoFiltro }}</span>
+      <button type="button" class="enlace-accion boton-enlace" @click="quitarFiltroProducto">Quitar filtro</button>
+    </p>
+
     <p class="fila fila--separada texto-secundario">
-      <span>Más recientes primero · {{ etiquetaProducto }}</span>
+      <span>{{ movimientosFiltrados.length }} {{ movimientosFiltrados.length === 1 ? 'registro' : 'registros' }} · Más recientes primero</span>
       <button type="button" class="enlace-accion boton-enlace" @click="limpiarFiltros">Limpiar filtros</button>
     </p>
 
-    <section v-if="movimientos.length" class="panel">
+    <Alert v-if="mensajeError" tipo="error" titulo="No pudimos cargar el historial" :mensaje="mensajeError" />
+
+    <LoadingState v-if="cargando" texto="Cargando movimientos…" />
+
+    <section v-else-if="movimientosFiltrados.length" class="panel">
       <MovementTable :movimientos="movimientosDeLaPagina" />
 
       <Pagination
-        :total="movimientos.length"
-        :desde="desde"
-        :hasta="hasta"
+        :total="movimientosFiltrados.length"
+        :desde="desdeCalc"
+        :hasta="hastaCalc"
         :pagina="pagina"
         :total-paginas="totalPaginas"
         unidad="registros"
@@ -78,24 +120,26 @@
       </template>
     </EmptyState>
 
-    <p class="texto-meta">Los totales incluyen los {{ movimientosFiltrados.length }} registros del período, no solo esta página.</p>
+    <p class="texto-meta">El historial es de solo lectura: los movimientos confirmados no se modifican ni se eliminan desde la aplicación.</p>
   </div>
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Button from '@/components/common/Button.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import Icon from '@/components/common/Icon.vue'
 import Input from '@/components/common/Input.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import LoadingState from '@/components/common/LoadingState.vue'
 import Pagination from '@/components/common/Pagination.vue'
+import Alert from '@/components/common/Alert.vue'
 import MovementTable from '@/components/inventory/MovementTable.vue'
-import { findProduct } from '@/services/store'
-import { filtrarHistorial, rangoPeriodo, totalesDe } from '@/services/analytics'
-import { formatRangoFechas, formatUnidades } from '@/utils/format'
-import { negocio } from '@/data/business'
+import { filtrarHistorial, getResponsables, calcularTotales } from '@/services/movements'
+import { productosCompartidos, cargarProductos } from '@/services/store'
+import { etiquetaRango } from '@/services/analytics'
+import { formatUnidades } from '@/utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -108,60 +152,133 @@ const OPCIONES_TIPO = [
   { valor: 'Salida', texto: 'Salidas' }
 ]
 
+const OPCIONES_ORDEN = [
+  { valor: 'desc', texto: 'Más recientes primero' },
+  { valor: 'asc', texto: 'Más antiguos primero' }
+]
+
 const busqueda = ref('')
 const tipo = ref('todos')
 const periodo = ref('periodo')
+const desde = ref('')
+const hasta = ref('')
+const responsable = ref('todos')
+const orden = ref('desc')
 const productoId = ref(route.query.producto ? Number(route.query.producto) : null)
 const pagina = ref(1)
 
-const opcionesPeriodo = computed(() => {
-  const { desde, hasta } = rangoPeriodo()
-  return [
-    { valor: 'periodo', texto: `Período: ${formatRangoFechas(desde, hasta)}` },
-    { valor: 'todo', texto: 'Todo el historial' }
-  ]
-})
+const movimientosFiltrados = ref([])
+const responsables = ref([])
+const cargando = ref(true)
+const mensajeError = ref('')
 
-const movimientosFiltrados = computed(() => {
-  const { desde, hasta } = rangoPeriodo()
-  const enPeriodo = periodo.value === 'periodo'
+let recargaPendiente = null
 
-  return filtrarHistorial({
-    busqueda: busqueda.value,
-    tipo: tipo.value,
-    desde: enPeriodo ? desde : null,
-    hasta: enPeriodo ? hasta : null
-  }).filter(movimiento => !productoId.value || movimiento.id_producto === productoId.value)
-})
+const opcionesPeriodo = computed(() => [
+  { valor: 'periodo', texto: `Período: ${etiquetaRango()}` },
+  { valor: 'todo', texto: 'Todo el historial' },
+  { valor: 'personalizado', texto: 'Elegir fechas…' }
+])
 
-const movimientos = computed(() => movimientosFiltrados.value)
-const totales = computed(() => totalesDe(movimientosFiltrados.value))
+const opcionesResponsables = computed(() => [
+  { valor: 'todos', texto: 'Todos los responsables' },
+  ...responsables.value.map(u => ({ valor: u.id_usuario, texto: u.nombre }))
+])
 
-const totalPaginas = computed(() => Math.max(Math.ceil(movimientos.value.length / POR_PAGINA), 1))
+const errorFechas = computed(() =>
+  periodo.value === 'personalizado' && desde.value && hasta.value && desde.value > hasta.value
+    ? 'La fecha inicial no puede ser posterior a la final.'
+    : ''
+)
+
+const totales = computed(() => calcularTotales(movimientosFiltrados.value))
+const signoNeto = computed(() => (totales.value.neto >= 0 ? '+' : '–'))
+
+const productoSeleccionado = computed(
+  () => productosCompartidos.value.find(p => p.id_producto === productoId.value) || null
+)
+const nombreProductoFiltro = computed(() => productoSeleccionado.value?.nombre || `Producto #${productoId.value}`)
+
+const totalPaginas = computed(() => Math.max(Math.ceil(movimientosFiltrados.value.length / POR_PAGINA), 1))
 
 const movimientosDeLaPagina = computed(() => {
   const inicio = (pagina.value - 1) * POR_PAGINA
-  return movimientos.value.slice(inicio, inicio + POR_PAGINA)
+  return movimientosFiltrados.value.slice(inicio, inicio + POR_PAGINA)
 })
 
-const desde = computed(() => (movimientos.value.length ? (pagina.value - 1) * POR_PAGINA + 1 : 0))
-const hasta = computed(() => Math.min(pagina.value * POR_PAGINA, movimientos.value.length))
+const desdeCalc = computed(() => (movimientosFiltrados.value.length ? (pagina.value - 1) * POR_PAGINA + 1 : 0))
+const hastaCalc = computed(() => Math.min(pagina.value * POR_PAGINA, movimientosFiltrados.value.length))
 
-const etiquetaProducto = computed(() => {
-  if (!productoId.value) return 'Todos los productos'
-  return findProduct(productoId.value)?.nombre || 'Producto no encontrado'
-})
+const rangoFechas = () => {
+  if (periodo.value === 'periodo') {
+    const hoy = new Date()
+    const inicio = new Date(hoy)
+    inicio.setDate(hoy.getDate() - 6)
+    const aISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    return { desde: aISO(inicio), hasta: aISO(hoy) }
+  }
+  if (periodo.value === 'personalizado') {
+    return { desde: desde.value || null, hasta: hasta.value || null }
+  }
+  return { desde: null, hasta: null }
+}
 
-watch([busqueda, tipo, periodo, productoId], () => {
-  pagina.value = 1
-})
+const cargar = async () => {
+  if (errorFechas.value) return
+
+  cargando.value = true
+  mensajeError.value = ''
+
+  const { desde: d, hasta: h } = rangoFechas()
+
+  const { data, error } = await filtrarHistorial({
+    busqueda: busqueda.value,
+    tipo: tipo.value,
+    desde: d,
+    hasta: h,
+    idProducto: productoId.value,
+    idResponsable: responsable.value,
+    orden: orden.value,
+    limite: 500
+  })
+
+  if (error) {
+    mensajeError.value = 'Revisá tu conexión o los filtros aplicados. Si el problema sigue, avisá al administrador.'
+    movimientosFiltrados.value = []
+  } else {
+    movimientosFiltrados.value = data ?? []
+  }
+
+  cargando.value = false
+}
+
+// Reacarga con debounce al cambiar filtros de texto
+const programarRecarga = () => {
+  if (recargaPendiente) clearTimeout(recargaPendiente)
+  recargaPendiente = setTimeout(() => {
+    pagina.value = 1
+    cargar()
+  }, 250)
+}
+
+watch([busqueda, tipo, periodo, desde, hasta, responsable, orden], programarRecarga)
 
 watch(
   () => route.query.producto,
   (valor) => {
     productoId.value = valor ? Number(valor) : null
+    pagina.value = 1
+    cargar()
   }
 )
+
+onMounted(async () => {
+  cargando.value = true
+  await Promise.all([cargar(), cargarProductos()])
+  const { data } = await getResponsables()
+  responsables.value = data ?? []
+  cargando.value = false
+})
 
 const cambiarPagina = (nueva) => {
   pagina.value = nueva
@@ -171,10 +288,25 @@ const limpiarFiltros = () => {
   busqueda.value = ''
   tipo.value = 'todos'
   periodo.value = 'periodo'
+  desde.value = ''
+  hasta.value = ''
+  responsable.value = 'todos'
+  orden.value = 'desc'
   productoId.value = null
+  pagina.value = 1
+
   if (route.query.producto) {
     router.replace({ name: 'movimientos' })
   }
+}
+
+const quitarFiltroProducto = () => {
+  productoId.value = null
+  pagina.value = 1
+  if (route.query.producto) {
+    router.replace({ name: 'movimientos' })
+  }
+  cargar()
 }
 
 const irRegistrarMovimiento = () => router.push({ name: 'movimiento-registrar' })
@@ -183,7 +315,7 @@ const irRegistrarMovimiento = () => router.push({ name: 'movimiento-registrar' }
 <style scoped>
 .filtros {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 2fr) repeat(5, minmax(0, 1fr));
   gap: var(--esp-16);
 }
 
@@ -207,7 +339,11 @@ const irRegistrarMovimiento = () => router.push({ name: 'movimiento-registrar' }
   font-size: 14px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1200px) {
+  .filtros { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
   .filtros { grid-template-columns: minmax(0, 1fr); }
 }
 </style>

@@ -45,13 +45,13 @@
       <p class="inicio__texto">Un resumen de tus existencias, con los cambios y avisos que importan.</p>
 
       <div class="inicio__vista-previa">
-        <p class="inicio__vista-titulo">stoq. / {{ negocio.etiqueta }}</p>
+        <p class="inicio__vista-titulo">stoq. / {{ negocio.etiqueta }} · Vista ilustrativa</p>
 
         <div class="metricas">
-          <StatCard etiqueta="Productos" :valor="resumen.totalProductos" :contexto="`${resumen.totalCategorias} categorías activas`" />
-          <StatCard etiqueta="Unidades en stock" :valor="resumen.totalUnidades" :contexto="`+${resumen.neto} en los últimos 7 días`" />
-          <StatCard etiqueta="Stock bajo" :valor="resumen.stockBajo" contexto="Por debajo del mínimo" />
-          <StatCard etiqueta="Agotados" :valor="resumen.agotados" contexto="Necesita reposición" />
+          <StatCard etiqueta="Productos" :valor="DEMO.totalProductos" :contexto="`${DEMO.totalCategorias} categorías activas`" />
+          <StatCard etiqueta="Unidades en stock" :valor="DEMO.totalUnidades" :contexto="`+${DEMO.neto} en los últimos 7 días`" />
+          <StatCard etiqueta="Stock bajo" :valor="DEMO.stockBajo" contexto="Por debajo del mínimo" />
+          <StatCard etiqueta="Agotados" :valor="DEMO.agotados" contexto="Necesita reposición" />
         </div>
 
         <div class="panel">
@@ -59,12 +59,12 @@
           <p class="grafico__leyenda">
             <span class="grafico__leyenda-item">
               <span class="grafico__marca grafico__marca--punto"></span>
-              Existencias al cierre · unidades · {{ negocio.periodo }}
+              Existencias al cierre · unidades · últimos 7 días
             </span>
           </p>
           <LineChart
-            :valores="serie.valores"
-            :etiquetas="serie.etiquetas"
+            :valores="DEMO.serie.valores"
+            :etiquetas="DEMO.serie.etiquetas"
             :altura="200"
             descripcion="Evolución de las existencias durante los últimos 7 días"
           />
@@ -102,11 +102,11 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="producto in destacados" :key="producto.id_producto">
+            <tr v-for="producto in DEMO.destacados" :key="producto.codigo">
               <td>
                 <div class="fila-principal">
                   <span>{{ producto.nombre }}</span>
-                  <span class="celda-sub">{{ producto.codigo }} · {{ getCategoryName(producto.id_categoria) }}</span>
+                  <span class="celda-sub">{{ producto.codigo }} · {{ producto.categoria }}</span>
                 </div>
               </td>
               <td class="celda-numero">
@@ -115,7 +115,7 @@
                   <span class="celda-sub">mín. {{ producto.stock_minimo }}</span>
                 </div>
               </td>
-              <td><Badge :estado="estadoStock(producto)" /></td>
+              <td><Badge :estado="producto.estado" /></td>
             </tr>
           </tbody>
         </table>
@@ -146,7 +146,7 @@
             <span>84</span>
           </p>
           <p class="texto-meta">Stock anterior → stock actual · unidades</p>
-          <p class="texto-meta">{{ negocio.hoyTexto }} · VEL-001</p>
+          <p class="texto-meta">VEL-001</p>
         </article>
       </div>
     </section>
@@ -163,14 +163,14 @@
 
       <div class="inicio__bloque-panel">
         <ul class="lista-simple">
-          <li v-for="item in muestraEstados" :key="item.id_producto" class="item-atencion">
+          <li v-for="item in DEMO.muestraEstados" :key="item.codigo" class="item-atencion">
             <span class="fila">
-              <Badge :estado="estadoStock(item)" />
+              <Badge :estado="item.estado" />
               <span class="item-atencion__producto">{{ item.nombre }}</span>
             </span>
             <span class="texto-secundario">
               {{ item.stock_actual }} u. · mínimo {{ item.stock_minimo }} ·
-              {{ etiquetaEstado(estadoStock(item)) }}
+              {{ item.etiqueta }}
             </span>
           </li>
         </ul>
@@ -206,30 +206,37 @@ import Button from '@/components/common/Button.vue'
 import Icon from '@/components/common/Icon.vue'
 import LineChart from '@/components/common/LineChart.vue'
 import StatCard from '@/components/common/StatCard.vue'
-import { getProducts, isDarkTheme, toggleTheme } from '@/services/store'
-import {
-  estadoStock,
-  etiquetaEstado,
-  resumenInventario,
-  serieExistencias
-} from '@/services/analytics'
-import { getCategoryName } from '@/data/categories'
+import { isDarkTheme, toggleTheme } from '@/services/store'
 import { negocio } from '@/data/business'
 
 const router = useRouter()
 const oscuro = computed(() => isDarkTheme.value)
-
-const resumen = computed(() => resumenInventario())
-const serie = computed(() => serieExistencias())
-const destacados = computed(() => getProducts().slice(0, 3))
-const muestraEstados = computed(() => {
-  const productos = getProducts()
-  const primeroCon = (estado) => productos.find(p => estadoStock(p) === estado)
-  return [primeroCon('suficiente'), primeroCon('bajo'), primeroCon('agotado')].filter(Boolean)
-})
-
 const alternarTema = () => toggleTheme()
 const irIngresar = () => router.push({ name: 'ingresar' })
+
+// Vista previa ilustrativa del producto (datos de ejemplo, no reales).
+const DEMO = {
+  totalProductos: 8,
+  totalCategorias: 4,
+  totalUnidades: 262,
+  neto: 26,
+  stockBajo: 2,
+  agotados: 1,
+  serie: {
+    valores: [236, 244, 238, 249, 255, 258, 262],
+    etiquetas: ['21 oct', '22 oct', '23 oct', '24 oct', '25 oct', '26 oct', '27 oct']
+  },
+  destacados: [
+    { codigo: 'VEL-001', nombre: 'Vela de soja · Ámbar', categoria: 'Velas', stock_actual: 84, stock_minimo: 20, estado: 'suficiente' },
+    { codigo: 'DIF-002', nombre: 'Difusor · Cítrico', categoria: 'Difusores', stock_actual: 18, stock_minimo: 20, estado: 'bajo' },
+    { codigo: 'SPR-002', nombre: 'Home spray · Cedro', categoria: 'Home sprays', stock_actual: 0, stock_minimo: 10, estado: 'agotado' }
+  ],
+  muestraEstados: [
+    { codigo: 'VEL-001', nombre: 'Vela de soja · Ámbar', stock_actual: 84, stock_minimo: 20, estado: 'suficiente', etiqueta: 'Suficiente' },
+    { codigo: 'DIF-002', nombre: 'Difusor · Cítrico', stock_actual: 18, stock_minimo: 20, estado: 'bajo', etiqueta: 'Stock bajo' },
+    { codigo: 'SPR-002', nombre: 'Home spray · Cedro', stock_actual: 0, stock_minimo: 10, estado: 'agotado', etiqueta: 'Agotado' }
+  ]
+}
 
 const SELLOS = ['Productos claros', 'Movimientos al día', 'Stock a la vista']
 
@@ -310,7 +317,7 @@ const PREGUNTAS = [
 .inicio__sellos {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--esp-16);
+  gap: var(--esp-24);
   list-style: none;
   margin: 0;
   padding: 0;
@@ -436,7 +443,7 @@ const PREGUNTAS = [
   .inicio__hero { padding: var(--esp-32) var(--esp-16); }
   .inicio__hero h1 { font-size: 36px; }
   .inicio__seccion,
-  .inicio__bloque { padding: var(--esp-32) var(--esp-16); grid-template-columns: minmax(0, 1fr); gap: var(--esp-24); }
+  .inicio__bloque { padding: var(--esp-32) var(--esp-16); grid-template-columns: minmax(0, 1fr); gap: var(--esp-32); }
   .inicio__bloque--invertido { direction: ltr; }
   .inicio__cierre { padding: var(--esp-32) var(--esp-16); }
   .inicio__vista-previa,

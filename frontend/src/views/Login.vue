@@ -24,8 +24,8 @@
           Volvé a tu espacio y seguí con lo que importa: hacer crecer tu emprendimiento.
         </p>
         <p class="ingreso__negocio">{{ negocio.etiqueta }}</p>
-        <p class="ingreso__unidades">{{ resumen.totalUnidades }}</p>
-        <p class="texto-secundario">unidades ordenadas en un solo lugar.</p>
+        <p class="ingreso__unidades">stoq</p>
+        <p class="texto-secundario">tu stock, en claro.</p>
       </section>
 
       <section class="ingreso__formulario">
@@ -37,6 +37,13 @@
           tipo="error"
           titulo="No pudimos iniciar sesión"
           :mensaje="mensajeError"
+        />
+
+        <Alert
+          v-if="mensajeExito"
+          tipo="exito"
+          titulo="Revisá tu correo"
+          :mensaje="mensajeExito"
         />
 
         <form class="ingreso__form" novalidate @submit.prevent="ingresar">
@@ -90,7 +97,7 @@ import Button from '@/components/common/Button.vue'
 import Icon from '@/components/common/Icon.vue'
 import Input from '@/components/common/Input.vue'
 import { isDarkTheme, login, toggleTheme } from '@/services/store'
-import { resumenInventario } from '@/services/analytics'
+import { restablecerContrasena } from '@/services/auth'
 import { hayErrores } from '@/utils/validation'
 import { negocio } from '@/data/business'
 
@@ -99,11 +106,11 @@ const router = useRouter()
 const credenciales = reactive({ email: '', password: '' })
 const errores = reactive({ email: '', password: '' })
 const mensajeError = ref('')
+const mensajeExito = ref('')
 const cargando = ref(false)
 const mostrarContrasena = ref(false)
 
 const oscuro = computed(() => isDarkTheme.value)
-const resumen = computed(() => resumenInventario())
 
 const alternarTema = () => toggleTheme()
 
@@ -125,8 +132,9 @@ const validar = () => {
   return !hayErrores(resultado)
 }
 
-const ingresar = () => {
+const ingresar = async () => {
   mensajeError.value = ''
+  mensajeExito.value = ''
 
   if (!validar()) {
     mensajeError.value = 'Revisá los datos marcados para continuar.'
@@ -134,19 +142,38 @@ const ingresar = () => {
   }
 
   cargando.value = true
-  const respuesta = login(credenciales.email, credenciales.password)
+  const respuesta = await login(credenciales.email, credenciales.password)
   cargando.value = false
 
   if (!respuesta.success) {
-    mensajeError.value = respuesta.error
+    mensajeError.value = respuesta.error || 'Las credenciales no son válidas. Probá de nuevo.'
     return
   }
 
   router.push({ name: 'panel' })
 }
 
-const olvidoContrasena = () => {
-  mensajeError.value = 'La recuperación de contraseña es una simulación: en esta versión ingresá con tu correo y una contraseña de 4 caracteres o más.'
+const olvidoContrasena = async () => {
+  mensajeError.value = ''
+  mensajeExito.value = ''
+
+  const email = credenciales.email.trim()
+  if (!email) {
+    errores.email = 'Ingresá tu correo para enviarte el enlace de recuperación.'
+    mensajeError.value = 'Ingresá tu correo electrónico para recuperar la contraseña.'
+    return
+  }
+
+  cargando.value = true
+  const respuesta = await restablecerContrasena(email)
+  cargando.value = false
+
+  if (!respuesta.success) {
+    mensajeError.value = respuesta.error || 'No pudimos enviar el enlace de recuperación.'
+    return
+  }
+
+  mensajeExito.value = `Si ${email} está registrado, vas a recibir un enlace para restablecer tu contraseña.`
 }
 </script>
 

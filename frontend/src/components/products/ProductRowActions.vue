@@ -23,6 +23,10 @@
         <Icon nombre="movimientos" :tamano="18" class="menu-contextual__check" />
         Registrar movimiento
       </button>
+      <button v-if="isAdmin" type="button" class="menu-contextual__opcion" role="menuitem" @click="$emit('alternar-activo')">
+        <Icon :nombre="producto.activo ? 'equis' : 'check'" :tamano="18" class="menu-contextual__check" />
+        {{ producto.activo ? 'Desactivar producto' : 'Reactivar producto' }}
+      </button>
     </div>
   </div>
 </template>
@@ -36,7 +40,7 @@ defineProps({
   abierto: { type: Boolean, default: false }
 })
 
-defineEmits(['alternar', 'ver', 'editar', 'movimiento'])
+defineEmits(['alternar', 'ver', 'editar', 'movimiento', 'alternar-activo'])
 </script>
 
 <style scoped>

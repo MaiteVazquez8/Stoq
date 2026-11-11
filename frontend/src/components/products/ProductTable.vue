@@ -12,14 +12,17 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="producto in productos" :key="producto.id_producto">
+        <tr v-for="producto in productos" :key="producto.id_producto" :class="{ 'fila-inactiva': !producto.activo }">
           <td>
             <div class="fila-principal">
-              <span class="celda-titulo">{{ producto.nombre }}</span>
+              <span class="celda-titulo">
+                {{ producto.nombre }}
+                <span v-if="!producto.activo" class="etiqueta-inactivo">Inactivo</span>
+              </span>
               <span class="celda-sub">{{ producto.codigo }}</span>
             </div>
           </td>
-          <td class="celda-sub">{{ getCategoryName(producto.id_categoria) }}</td>
+          <td class="celda-sub">{{ producto.categoria_nombre || '-' }}</td>
           <td class="celda-numero">
             <div class="fila-principal">
               <span class="stock-valor">{{ formatUnidades(producto.stock_actual) }}</span>
@@ -35,6 +38,7 @@
               @ver="emitir('ver', producto)"
               @editar="emitir('editar', producto)"
               @movimiento="emitir('movimiento', producto)"
+              @alternar-activo="emitir('alternar-activo', producto)"
             />
           </td>
         </tr>
@@ -46,8 +50,11 @@
       <li v-for="producto in productos" :key="`tarjeta-${producto.id_producto}`" class="tarjeta-producto">
         <div class="fila fila--separada">
           <div class="fila-principal">
-            <span class="celda-titulo">{{ producto.nombre }}</span>
-            <span class="celda-sub">{{ producto.codigo }} · {{ getCategoryName(producto.id_categoria) }}</span>
+            <span class="celda-titulo">
+              {{ producto.nombre }}
+              <span v-if="!producto.activo" class="etiqueta-inactivo">Inactivo</span>
+            </span>
+            <span class="celda-sub">{{ producto.codigo }} · {{ producto.categoria_nombre || '-' }}</span>
           </div>
           <AccionesFila
             :producto="producto"
@@ -56,6 +63,7 @@
             @ver="emitir('ver', producto)"
             @editar="emitir('editar', producto)"
             @movimiento="emitir('movimiento', producto)"
+            @alternar-activo="emitir('alternar-activo', producto)"
           />
         </div>
 
@@ -70,7 +78,6 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import Badge from '@/components/common/Badge.vue'
 import AccionesFila from '@/components/products/ProductRowActions.vue'
-import { getCategoryName } from '@/data/categories'
 import { formatUnidades, formatUnidadesLargas } from '@/utils/format'
 import { estadoStock } from '@/services/analytics'
 import { useEsMovil } from '@/utils/useEsMovil'
@@ -79,7 +86,7 @@ defineProps({
   productos: { type: Array, required: true }
 })
 
-const emit = defineEmits(['ver', 'editar', 'movimiento'])
+const emit = defineEmits(['ver', 'editar', 'movimiento', 'alternar-activo'])
 
 const { esMovil } = useEsMovil()
 const menuAbiertoId = ref(null)
@@ -137,6 +144,20 @@ onBeforeUnmount(() => {
 .stock-valor {
   font-weight: 500;
   font-variant-numeric: tabular-nums;
+}
+
+.fila-inactiva { opacity: 0.55; }
+
+.etiqueta-inactivo {
+  display: inline-block;
+  margin-left: var(--esp-8);
+  padding: 2px var(--esp-8);
+  border-radius: var(--radio-control);
+  border: 1px solid var(--n-400);
+  color: var(--texto-secundario);
+  font-size: 11px;
+  font-weight: 500;
+  vertical-align: middle;
 }
 
 @media (max-width: 768px) {

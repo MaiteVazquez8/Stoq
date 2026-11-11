@@ -14,7 +14,9 @@
       :mensaje="mensajeError.texto"
     />
 
-    <form class="pila--24" novalidate @submit.prevent="solicitarConfirmacion">
+    <LoadingState v-if="cargandoProductos" texto="Cargando productos…" />
+
+    <form v-else class="pila--24" novalidate @submit.prevent="solicitarConfirmacion">
       <div class="selector-tipo">
         <div class="selector-tipo__opciones">
           <button
@@ -100,8 +102,13 @@
         el mínimo es {{ formatUnidades(productoSeleccionado.stock_minimo) }}.
       </p>
 
+      <p v-if="!opcionesProductos.length" class="nota-linea">
+        <Icon nombre="alerta" :tamano="16" class="nota-linea__icono" />
+        No hay productos activos disponibles para mover. Registá un producto nuevo o reactivá uno existente.
+      </p>
+
       <div class="fila acciones-pila">
-        <Button tipo="submit" :deshabilitado="!puedeRegistrar">
+        <Button tipo="submit" :deshabilitado="!puedeRegistrar || !opcionesProductos.length">
           Registrar {{ etiquetaTipo }}
         </Button>
       </div>
@@ -131,24 +138,25 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Alert from '@/components/common/Alert.vue'
 import Button from '@/components/common/Button.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import Icon from '@/components/common/Icon.vue'
 import Input from '@/components/common/Input.vue'
+import LoadingState from '@/components/common/LoadingState.vue'
 import {
   getCurrentUser,
   getMovementMotives,
-  getProducts,
+  getProductosActivos,
+  cargarProductos,
   isAdmin,
   isOperador,
   registrarMovimiento
 } from '@/services/store'
 import { validarMovimiento, hayErrores, esEnteroPositivo } from '@/utils/validation'
 import { formatFechaHoraNumerica, formatUnidades, formatUnidadesLargas } from '@/utils/format'
-import { negocio } from '@/data/business'
 
 const props = defineProps({
   productoPreseleccionado: { type: [Number, String], default: null }
@@ -174,8 +182,9 @@ const modalAbierto = ref(false)
 const registrando = ref(false)
 const mensajeExito = ref(null)
 const mensajeError = ref(null)
+const cargandoProductos = ref(true)
 
-const productos = computed(() => getProducts())
+const productos = getProductosActivos
 
 const opcionesProductos = computed(() =>
   productos.value.map(producto => ({
@@ -192,8 +201,9 @@ const motivosDisponibles = computed(() => getMovementMotives(form.tipo_movimient
 
 const etiquetaTipo = computed(() => (form.tipo_movimiento === 'Entrada' ? 'entrada' : 'salida'))
 
-const fechaHoraTexto = computed(() => negocio.hoyTexto)
-const fechaHoraCampo = computed(() => formatFechaHoraNumerica(negocio.hoy))
+const ahora = () => new Date()
+const fechaHoraTexto = computed(() => formatFechaHoraNumerica(ahora()))
+const fechaHoraCampo = computed(() => formatFechaHoraNumerica(ahora()))
 
 const ayudaResponsable = computed(() => {
   const usuario = getCurrentUser()
@@ -216,6 +226,14 @@ const stockResultante = computed(() => {
     : stockAnterior.value - cantidad
 })
 
+const stockInsuficiente = computed(
+  () =>
+    !!productoSeleccionado.value &&
+    form.tipo_movimiento === 'Salida' &&
+    esEnteroPositivo(form.cantidad) &&
+    Number(form.cantidad) > productoSeleccionado.value.stock_actual
+)
+
 const lineaPrevia = computed(() => {
   if (!productoSeleccionado.value || !esEnteroPositivo(form.cantidad)) {
     return `${formatUnidades(stockAnterior.value)} → 0 unidades`
@@ -226,14 +244,6 @@ const lineaPrevia = computed(() => {
   const signo = form.tipo_movimiento === 'Entrada' ? '+' : '–'
   return `${formatUnidades(stockAnterior.value)} ${signo} ${formatUnidades(form.cantidad)} → ${formatUnidadesLargas(stockResultante.value)}`
 })
-
-const stockInsuficiente = computed(
-  () =>
-    !!productoSeleccionado.value &&
-    form.tipo_movimiento === 'Salida' &&
-    esEnteroPositivo(form.cantidad) &&
-    Number(form.cantidad) > productoSeleccionado.value.stock_actual
-)
 
 const puedeRegistrar = computed(() => isAdmin.value || isOperador.value)
 
@@ -257,6 +267,12 @@ watch(
   },
   { immediate: true }
 )
+
+onMounted(async () => {
+  cargandoProductos.value = true
+  await cargarProductos()
+  cargandoProductos.value = false
+})
 
 const solicitarConfirmacion = () => {
   limpiarMensajes()
@@ -289,10 +305,10 @@ const solicitarConfirmacion = () => {
   modalAbierto.value = true
 }
 
-const registrar = () => {
+const registrar = async () => {
   registrando.value = true
 
-  const respuesta = registrarMovimiento({
+  const respuesta = await registrarMovimiento({
     id_producto: form.id_producto,
     tipo_movimiento: form.tipo_movimiento,
     cantidad: form.cantidad,
@@ -304,14 +320,16 @@ const registrar = () => {
   modalAbierto.value = false
 
   if (!respuesta.success) {
-    mensajeError.value = { titulo: 'No pudimos registrar el movimiento', texto: respuesta.error }
+    mensajeError.value = { titulo: 'No pudimos registrar el movimiento', texto: respuesta.error || 'Intentá de nuevo.' }
     if (respuesta.campo) errores[respuesta.campo] = respuesta.error
     return
   }
 
+  const nombreProducto = productoSeleccionado.value?.nombre || 'el producto'
+
   mensajeExito.value = {
     titulo: form.tipo_movimiento === 'Entrada' ? 'Entrada registrada' : 'Salida registrada',
-    texto: `${formatUnidadesLargas(respuesta.movement.cantidad)} de ${productoSeleccionado.value.nombre}. El stock ahora es ${formatUnidades(respuesta.stockNuevo)}`
+    texto: `${formatUnidadesLargas(respuesta.cantidad)} de ${nombreProducto}. El stock ahora es ${formatUnidades(respuesta.stock_nuevo)}.`
   }
 
   setTimeout(() => {

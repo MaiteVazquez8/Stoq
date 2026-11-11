@@ -140,12 +140,19 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import Alert from '@/components/common/Alert.vue'
 import Button from '@/components/common/Button.vue'
 import Icon from '@/components/common/Icon.vue'
 import Input from '@/components/common/Input.vue'
-import { getCategories, isAdmin, createProduct, updateProduct, findProductByCode, getProducts } from '@/services/store'
+import {
+  categoriasCompartidas,
+  cargarCategorias,
+  isAdmin,
+  createProduct,
+  updateProduct,
+  findProductByCode
+} from '@/services/store'
 import { validarProducto, hayErrores } from '@/utils/validation'
 import { formatUnidadesLargas } from '@/utils/format'
 
@@ -158,8 +165,10 @@ const emit = defineEmits(['guardado'])
 
 const UNIDADES = ['Unidad', 'Pack', 'Caja']
 
+const categorias = categoriasCompartidas
+
 const opcionesCategorias = computed(() =>
-  getCategories().map(categoria => ({ valor: categoria.id_categoria, texto: categoria.nombre }))
+  categorias.value.map(categoria => ({ valor: categoria.id_categoria, texto: categoria.nombre }))
 )
 
 const form = reactive({
@@ -194,16 +203,19 @@ const cargarProducto = (producto) => {
 
 watch(() => props.producto, cargarProducto, { immediate: true })
 
+onMounted(() => {
+  // Garantiza categorías disponibles aunque se entre directo por URL
+  if (!categorias.value.length) cargarCategorias()
+})
+
 const pie = computed(() => {
   if (props.esEdicion) {
     return `${props.producto?.codigo || ''} · Stock actual: ${formatUnidadesLargas(props.producto?.stock_actual || 0)}.`
   }
-  const totalProductos = getProducts().length
-  const totalUnidades = getProducts().reduce((total, p) => total + p.stock_actual, 0)
-  return `Borrador de ${form.codigo || 'nuevo producto'}. Todavía no forma parte de los ${totalProductos} productos ni de las ${totalUnidades} unidades.`
+  return 'Completá los datos para sumar el producto al catálogo.'
 })
 
-const guardar = () => {
+const guardar = async () => {
   mensajeExito.value = ''
   mensajeError.value = ''
 
@@ -212,11 +224,14 @@ const guardar = () => {
     return
   }
 
-  const codigoDuplicado = Boolean(
-    findProductByCode(form.codigo, props.esEdicion ? props.producto?.id_producto : null)
-  )
+  const codigo = form.codigo.trim().toUpperCase()
+  const existente = codigo ? await findProductByCode(codigo, props.esEdicion ? props.producto?.id_producto : null) : null
+  const codigoDuplicado = Boolean(existente)
 
-  const resultadoValidacion = validarProducto(form, { esEdicion: props.esEdicion, codigoDuplicado })
+  const resultadoValidacion = validarProducto(
+    { ...form, codigo },
+    { esEdicion: props.esEdicion, codigoDuplicado, categorias: categorias.value }
+  )
   Object.keys(errores).forEach(clave => delete errores[clave])
   Object.assign(errores, resultadoValidacion)
 
@@ -227,9 +242,10 @@ const guardar = () => {
 
   guardando.value = true
 
+  const datos = { ...form, codigo }
   const respuesta = props.esEdicion
-    ? updateProduct(props.producto.id_producto, form)
-    : createProduct(form)
+    ? await updateProduct(props.producto.id_producto, datos)
+    : await createProduct(datos)
 
   guardando.value = false
 

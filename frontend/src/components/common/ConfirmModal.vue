@@ -8,7 +8,7 @@
       :aria-labelledby="idTitulo"
       @keydown.esc.stop.prevent="cancelar"
     >
-      <h2 :id="idTitulo" ref="titulo" class="modal__titulo" tabindex="-1">{{ titulo }}</h2>
+      <h2 :id="idTitulo" ref="tituloRef" class="modal__titulo" tabindex="-1">{{ titulo }}</h2>
 
       <div class="modal__cuerpo">
         <slot />
@@ -40,14 +40,14 @@ const props = defineProps({
   titulo: { type: String, default: 'Confirmar operación' },
   textoConfirmar: { type: String, default: 'Confirmar' },
   textoCancelar: { type: String, default: 'Cancelar' },
-  textoProcesando: { type: String, default: 'Registrando…' },
+  textoProcesando: { type: String, default: 'Procesando…' },
   procesando: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['confirmar', 'cancelar'])
 
 const caja = ref(null)
-const titulo = ref(null)
+const tituloRef = ref(null)
 const idTitulo = 'titulo-modal-confirmacion'
 
 const cancelar = () => {
@@ -64,7 +64,7 @@ watch(
     if (abierto) {
       window.addEventListener('keydown', alPresionarTecla)
       await nextTick()
-      titulo.value?.focus()
+      tituloRef.value?.focus()
     } else {
       window.removeEventListener('keydown', alPresionarTecla)
     }

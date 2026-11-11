@@ -46,7 +46,8 @@ const CONTENIDO = {
   'cerrar-sesion': '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>',
   caja: '<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
   cargando: '<path d="M21 12a9 9 0 1 1-6.219-8.56"/>',
-  filtros: '<path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/>'
+  filtros: '<path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/>',
+  etiqueta: '<path d="m12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.586 8.586a2 2 0 0 0 2.828 0l7.172-7.172a2 2 0 0 0 0-2.828z"/><circle cx="7.5" cy="7.5" r="1"/>'
 }
 
 const props = defineProps({
